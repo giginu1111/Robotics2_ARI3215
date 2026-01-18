@@ -34,6 +34,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'explorer = pac_mouse_pkg.explorer:main',
         ],
     },
 )
