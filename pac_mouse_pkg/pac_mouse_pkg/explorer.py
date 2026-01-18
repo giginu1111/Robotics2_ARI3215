@@ -37,20 +37,15 @@ class SmartMouse(Node):
         ranges = msg.ranges
         size = len(ranges)
         
-        # Helper to clean 'inf' and '0.0'
         def clean_data(r):
             if r == float('inf'): return 10.0
             if r == 0.0: return 10.0
             return r
 
-        # --- THE FIX YOU IDENTIFIED ---
-        # The Front is in the MIDDLE of the array (Index 180-ish)
+        # Front is Index 180 (Middle)
         mid_point = size // 2 
-        
-        # Take average of a few points around the center
         front_indices = [mid_point-2, mid_point-1, mid_point, mid_point+1, mid_point+2]
         
-        # Guard against index out of bounds (just in case array is small)
         valid_front = []
         for i in front_indices:
             if 0 <= i < size:
@@ -61,10 +56,7 @@ class SmartMouse(Node):
         else:
             self.front_dist = 10.0
         
-        # Left (+90 deg) is roughly 75% through the array
         self.left_dist = clean_data(ranges[int(size * 0.75)]) 
-        
-        # Right (-90 deg) is roughly 25% through the array
         self.right_dist = clean_data(ranges[int(size * 0.25)])
 
     def camera_callback(self, msg):
@@ -97,29 +89,38 @@ class SmartMouse(Node):
     def control_loop(self):
         cmd = Twist()
         
-        # 1. OBSTACLE AVOIDANCE (Safety)
-        if self.state == "AVOID_OBSTACLE":
+        # --- LOGIC UPDATE: PRIORITY SWAP ---
+        
+        # PRIORITY 1: CHEESE (THE WIN CONDITION)
+        # If we see cheese, we IGNORE the walls (until we literally touch it)
+        if self.cheese_visible:
+            self.state = "HUNT_CHEESE"
+            
+            # Stop if we are literally touching it (0.2m) so we don't burn the motors
+            if self.front_dist < 0.2:
+                print("🧀 YUM! Eating Cheese. (Stopped)")
+                cmd.linear.x = 0.0
+                cmd.angular.z = 0.0
+            else:
+                print(f"🧀 TARGET ACQUIRED! Closing in... (Dist: {self.front_dist:.2f})")
+                cmd.linear.x = 0.3 
+                cmd.angular.z = -0.005 * self.cheese_error 
+
+        # PRIORITY 2: CONTINUE AVOIDING (If we were already turning and NO cheese)
+        elif self.state == "AVOID_OBSTACLE":
             if time.time() - self.avoid_start_time < 1.0: 
-                # Back up and Turn
                 cmd.linear.x = -0.1 
                 cmd.angular.z = 0.8 
             else:
                 self.state = "SEARCH"
-                
-        # 2. TRIGGER AVOIDANCE
+
+        # PRIORITY 3: DETECT WALL (Only if NO cheese is seen)
         elif self.front_dist < 0.6: 
             print(f"Wall at {self.front_dist:.2f}m! Avoiding...")
             self.state = "AVOID_OBSTACLE"
             self.avoid_start_time = time.time()
             
-        # 3. CHEESE HUNTING
-        elif self.cheese_visible:
-            self.state = "HUNT_CHEESE"
-            print("🧀 TARGET ACQUIRED!")
-            cmd.linear.x = 0.3 
-            cmd.angular.z = -0.005 * self.cheese_error 
-            
-        # 4. RANDOM SEARCH
+        # PRIORITY 4: SEARCH
         else:
             self.state = "SEARCH"
             cmd.linear.x = 0.4
