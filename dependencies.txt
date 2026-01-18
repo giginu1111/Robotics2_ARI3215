@@ -1,3 +1,5 @@
 sudo apt install ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge
 
 ros2 pkg create --build-type ament_python pac_mouse_pkg --dependencies rclpy xacro
+
+colcon build --symlink-install --packages-select pac_mouse_pkg
