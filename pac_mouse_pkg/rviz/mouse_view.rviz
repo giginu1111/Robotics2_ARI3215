@@ -36,7 +36,7 @@ Visualization Manager:
         Value: /scan
       Color Transformer: FlatColor
       Color: 255; 0; 0
-      Size (m): 0.05
+      Size (m): 0.1
     - Class: rviz_default_plugins/Image
       Enabled: true
       Max Value: 1
@@ -53,7 +53,7 @@ Visualization Manager:
       Unreliable: false
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_link
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
