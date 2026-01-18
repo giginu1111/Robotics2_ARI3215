@@ -12,6 +12,9 @@ def generate_launch_description():
     pkg_name = 'pac_mouse_pkg' 
     pkg_share = get_package_share_directory(pkg_name)
     
+    # rviz config file
+    rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
+    
     # WORLD FILE
     world_file = os.path.join(pkg_share, 'worlds', 'maze.sdf')
     
@@ -87,7 +90,8 @@ def generate_launch_description():
         executable='rviz2',
         name='rviz2',
         output='screen',
-        # arguments=['-d', os.path.join(pkg_share, 'rviz', 'config.rviz')] # Uncomment if you save a config
+        arguments=['-d', rviz_config_file], # Load the config!
+        parameters=[{'use_sim_time': True}] # Force sim time
     )
 
     return LaunchDescription([
