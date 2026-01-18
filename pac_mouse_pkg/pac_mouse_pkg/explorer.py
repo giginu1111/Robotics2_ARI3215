@@ -45,24 +45,28 @@ class PacMouseNode(Node):
         ranges = msg.ranges
         size = len(ranges)
         
-        # Helper: Clean 'inf' values to 10.0 so math works
-        def clean_range(r):
-            return r if r < 100 else 10.0 # Arbitrary max range
-        
-        # 1. Front (Average of a cone)
-        # We handle wrapping: indices [358, 359, 0, 1, 2]
-        front_indices = [0, 1, 2, size-1, size-2]
-        clean_front = [clean_range(ranges[i]) for i in front_indices]
-        self.front_dist = sum(clean_front) / len(clean_front)
-        
-        # 2. Left (Approx 90 degrees)
-        self.left_dist = clean_range(ranges[min(int(size * 0.25), size-1)])
-        
-        # 3. Right (Approx 270 degrees)
-        self.right_dist = clean_range(ranges[min(int(size * 0.75), size-1)])
+        # 1. Handle 'inf' or '0.0'
+        def clean_data(r):
+            if r == float('inf'): return 10.0
+            if r == 0.0: return 10.0
+            return r
 
-        # Debug Print: Let's see what the robot sees!
-        # self.get_logger().info(f'Front: {self.front_dist:.2f} | Left: {self.left_dist:.2f}')
+        # 2. FIX: The Front is in the MIDDLE of the array (Index 180)
+        # Because the scan goes from -Pi (Back) to +Pi (Back)
+        mid_point = size // 2  # Approx 180
+        
+        # Take a small average around the center point
+        front_indices = [mid_point-2, mid_point-1, mid_point, mid_point+1, mid_point+2]
+        valid_front = [clean_data(ranges[i]) for i in front_indices]
+        self.front_dist = sum(valid_front) / len(valid_front)
+        
+        # 3. Left and Right need to shift too
+        # Left is +90 deg (approx index 270)
+        # Right is -90 deg (approx index 90)
+        self.left_dist = clean_data(ranges[int(size * 0.75)]) 
+        self.right_dist = clean_data(ranges[int(size * 0.25)])
+
+        self.get_logger().info(f'Front: {self.front_dist:.3f}', throttle_duration_sec=0.5)
 
     def camera_callback(self, msg):
         # Convert ROS Image -> OpenCV Image
