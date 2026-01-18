@@ -9,17 +9,18 @@ import xacro
 def generate_launch_description():
     pkg_share = get_package_share_directory('pac_mouse_pkg')
 
-    # 1. PROCESS URDF
+    # 1. RESOURCES
     xacro_file = os.path.join(pkg_share, 'urdf', 'mouse.urdf.xacro')
     doc = xacro.process_file(xacro_file)
     robot_desc_xml = doc.toxml()
-
-    # 2. CONFIG
+    
     rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
     world_file = os.path.join(pkg_share, 'worlds', 'maze.sdf') 
+    ekf_config_file = os.path.join(pkg_share, 'config', 'ekf.yaml')
+    
     gazebo_ros_pkg = get_package_share_directory('ros_gz_sim')
 
-    # GAZEBO
+    # 2. GAZEBO SIMULATION
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_ros_pkg, 'launch', 'gz_sim.launch.py')
@@ -34,7 +35,8 @@ def generate_launch_description():
         output='screen'
     )
 
-    # BRIDGE
+    # 3. BRIDGE (Jazzy / Harmonic Compatible)
+    # The syntax [gz.msgs... is standard and should work fine in Jazzy
     node_ros_gz_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -43,11 +45,13 @@ def generate_launch_description():
             '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry', 
+            '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',         
         ],
         output='screen'
     )
 
-    # ROBOT STATE PUBLISHER
+    # 4. ROBOT STATE PUBLISHER
     node_robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -58,15 +62,14 @@ def generate_launch_description():
         }]
     )
 
-    # *** NEW: JOINT STATE PUBLISHER (FIXES INVISIBLE WHEELS) ***
+    # 5. JOINT STATE PUBLISHER
     node_joint_state_publisher = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
-        name='joint_state_publisher',
         parameters=[{'use_sim_time': True}]
     )
 
-    # TF FIX
+    # 6. TF FIX (Lidar Link)
     node_tf_fix = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -75,7 +78,32 @@ def generate_launch_description():
         output='screen'
     )
 
-    # RVIZ
+    # 7. EKF (SENSOR FUSION)
+    node_ekf = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_config_file, {'use_sim_time': True}]
+    )
+
+    # 8. SLAM TOOLBOX (Jazzy Compatible)
+    node_slam = Node(
+        package='slam_toolbox',
+        executable='async_slam_toolbox_node',
+        name='slam_toolbox',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'odom_frame': 'odom',
+            'base_frame': 'base_link',
+            'map_frame': 'map',
+            'mode': 'mapping',
+            'map_update_interval': 0.5
+        }]
+    )
+
+    # 9. RVIZ
     node_rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -84,10 +112,17 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
-    # DELAY GROUP (Wait 5s for stability)
+    # DELAY GROUP
     delayed_nodes = TimerAction(
         period=5.0, 
-        actions=[node_robot_state_publisher, node_joint_state_publisher, node_tf_fix, node_rviz]
+        actions=[
+            node_robot_state_publisher, 
+            node_joint_state_publisher, 
+            node_tf_fix, 
+            node_ekf, 
+            node_slam, 
+            node_rviz
+        ]
     )
 
     return LaunchDescription([
