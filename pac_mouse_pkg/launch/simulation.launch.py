@@ -9,21 +9,19 @@ import xacro
 def generate_launch_description():
     pkg_share = get_package_share_directory('pac_mouse_pkg')
 
-    # 1. PROCESS THE URDF
+    # 1. PROCESS URDF
     xacro_file = os.path.join(pkg_share, 'urdf', 'mouse.urdf.xacro')
     doc = xacro.process_file(xacro_file)
     robot_desc_xml = doc.toxml()
 
-    # 2. CONFIG FILES
+    # 2. CONFIG
     rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
     world_file = os.path.join(pkg_share, 'worlds', 'maze.sdf') 
     gazebo_ros_pkg = get_package_share_directory('ros_gz_sim')
 
     # ========================================================================
-    # GROUP 1: INFRASTRUCTURE (Start these immediately)
+    # A. GAZEBO & BRIDGE (The Time Source)
     # ========================================================================
-    
-    # A. Gazebo Simulation
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_ros_pkg, 'launch', 'gz_sim.launch.py')
@@ -31,81 +29,72 @@ def generate_launch_description():
         launch_arguments={'gz_args': f'-r {world_file}'}.items(),
     )
 
-    # B. Spawn the Robot in Gazebo
     node_spawn = Node(
         package='ros_gz_sim',
         executable='create',
-        arguments=[
-            '-topic', '/robot_description',
-            '-name', 'squeak_mouse',
-            '-z', '0.1'
-        ],
+        arguments=['-topic', '/robot_description', '-name', 'squeak_mouse', '-z', '0.1'],
         output='screen'
     )
 
-    # C. The Bridge (CRITICAL: Needs to be running for Clock)
+    # BRIDGE: NOTICE I REMOVED '/tf' TO PREVENT CONFLICTS
     node_ros_gz_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
             '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-            '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            # Bridge Joint States for the wheels
-            '/world/maze/model/squeak_mouse/joint_state@sensor_msgs/msg/JointState[gz.msgs.Model'
+            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model', # Fixed mapping
         ],
         remappings=[
-            ('/world/maze/model/squeak_mouse/joint_state', '/joint_states')
+            ('/joint_states', '/joint_states') # Ensure explicit mapping
         ],
         output='screen'
     )
 
     # ========================================================================
-    # GROUP 2: ROBOT BRAIN & VISUALS (Delay these by 5 seconds)
+    # B. ROBOT NODES (Forced Simulation Time)
     # ========================================================================
-
-    # D. Robot State Publisher (Publishes the "Body" of the robot)
+    
+    # 1. Robot State Publisher
     node_robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='screen',
         parameters=[{
             'robot_description': robot_desc_xml,
-            'use_sim_time': True  # Essential for syncing
+            'use_sim_time': True 
         }]
     )
 
-    # E. RViz (The Visualizer)
+    # 2. TF Fix for Lidar (Updated syntax)
+    node_tf_fix = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=['0', '0', '0', '0', '0', '0', 'lidar_link', 'squeak_mouse/base_link/lidar'],
+        parameters=[{'use_sim_time': True}],
+        output='screen'
+    )
+
+    # 3. RViz
     node_rviz = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
         arguments=['-d', rviz_config_file],
-        parameters=[{'use_sim_time': True}] # Essential for syncing
+        parameters=[{'use_sim_time': True}]
     )
 
-    # F. TF Fix (Connects Lidar)
-    node_tf_fix = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        arguments=['0', '0', '0', '0', '0', '0', 'lidar_link', 'squeak_mouse/base_link/lidar'],
-        parameters=[{'use_sim_time': True}], # Essential for syncing
-        output='screen'
-    )
-
-    # Create a Timer to launch Group 2 after 5 seconds
+    # DELAY GROUP: Wait 5 seconds for Bridge to establish Clock
     delayed_nodes = TimerAction(
         period=5.0, 
-        actions=[node_robot_state_publisher, node_rviz, node_tf_fix]
+        actions=[node_robot_state_publisher, node_tf_fix, node_rviz]
     )
 
     return LaunchDescription([
         gazebo,
         node_spawn,
         node_ros_gz_bridge,
-        delayed_nodes # Everything else launches later
+        delayed_nodes
     ])
