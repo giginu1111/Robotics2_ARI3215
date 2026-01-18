@@ -19,9 +19,7 @@ def generate_launch_description():
     world_file = os.path.join(pkg_share, 'worlds', 'maze.sdf') 
     gazebo_ros_pkg = get_package_share_directory('ros_gz_sim')
 
-    # ========================================================================
-    # A. GAZEBO & BRIDGE (The Time Source)
-    # ========================================================================
+    # GAZEBO
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_ros_pkg, 'launch', 'gz_sim.launch.py')
@@ -36,7 +34,7 @@ def generate_launch_description():
         output='screen'
     )
 
-    # BRIDGE: NOTICE I REMOVED '/tf' TO PREVENT CONFLICTS
+    # BRIDGE
     node_ros_gz_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -45,19 +43,11 @@ def generate_launch_description():
             '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model', # Fixed mapping
-        ],
-        remappings=[
-            ('/joint_states', '/joint_states') # Ensure explicit mapping
         ],
         output='screen'
     )
 
-    # ========================================================================
-    # B. ROBOT NODES (Forced Simulation Time)
-    # ========================================================================
-    
-    # 1. Robot State Publisher
+    # ROBOT STATE PUBLISHER
     node_robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -68,7 +58,15 @@ def generate_launch_description():
         }]
     )
 
-    # 2. TF Fix for Lidar (Updated syntax)
+    # *** NEW: JOINT STATE PUBLISHER (FIXES INVISIBLE WHEELS) ***
+    node_joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        parameters=[{'use_sim_time': True}]
+    )
+
+    # TF FIX
     node_tf_fix = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -77,7 +75,7 @@ def generate_launch_description():
         output='screen'
     )
 
-    # 3. RViz
+    # RVIZ
     node_rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -86,10 +84,10 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
-    # DELAY GROUP: Wait 5 seconds for Bridge to establish Clock
+    # DELAY GROUP (Wait 5s for stability)
     delayed_nodes = TimerAction(
         period=5.0, 
-        actions=[node_robot_state_publisher, node_tf_fix, node_rviz]
+        actions=[node_robot_state_publisher, node_joint_state_publisher, node_tf_fix, node_rviz]
     )
 
     return LaunchDescription([
