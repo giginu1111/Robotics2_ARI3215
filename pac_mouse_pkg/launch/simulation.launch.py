@@ -1,101 +1,98 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription, TimerAction, ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
+import xacro
 
 def generate_launch_description():
-    # 1. Configuration
-    # Replace 'my_robot_pkg' with your actual package name
-    pkg_name = 'pac_mouse_pkg' 
-    pkg_share = get_package_share_directory(pkg_name)
+    pkg_share = get_package_share_directory('pac_mouse_pkg')
     
-    # rviz config file
-    rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
-    
-    # WORLD FILE
-    world_file = os.path.join(pkg_share, 'worlds', 'maze.sdf')
-    
-    # Path to your URDF file
+    # 1. PROCESS THE URDF
     xacro_file = os.path.join(pkg_share, 'urdf', 'mouse.urdf.xacro')
-    
-    # 2. Process the URDF
-    # We use 'xacro' to convert the .xacro file to a raw URDF string
-    robot_description_raw = Command(['xacro ', xacro_file])
-    
-    # 3. Nodes
-    
-    # A. Robot State Publisher
-    # Publishes the TF tree so Rviz knows where the robot parts are
-    node_robot_state_publisher = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        output='screen',
-        parameters=[{'robot_description': robot_description_raw,
-                     'use_sim_time': True}] # Important for syncing with Gazebo
-    )
+    doc = xacro.process_file(xacro_file)
+    robot_desc_xml = doc.toxml()
 
-    # B. Gazebo Simulation (gz-sim)
-    # Starts an empty world. You can change 'empty.sdf' to your own maze world later.
-    include_gazebo = IncludeLaunchDescription(
+    # 2. CONFIG FILES
+    rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
+
+    # A. WORLD (Gazebo)
+    gazebo_ros_pkg = get_package_share_directory('ros_gz_sim')
+    # Change 'maze.sdf' to your actual world file name if different
+    world_file = os.path.join(pkg_share, 'worlds', 'maze.sdf') 
+    
+    gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')
+            os.path.join(gazebo_ros_pkg, 'launch', 'gz_sim.launch.py')
         ),
-        launch_arguments={'gz_args': '-r ' + world_file}.items(),
+        launch_arguments={'gz_args': f'-r {world_file}'}.items(),
     )
 
-    # C. Spawn the Robot
-    # Takes the robot description and spawns it into Gazebo at (0,0,0.1)
-    node_spawn_entity = Node(
+    # B. SPAWN ROBOT
+    node_spawn = Node(
         package='ros_gz_sim',
         executable='create',
         arguments=[
-            '-topic', 'robot_description',
+            '-topic', '/robot_description',
             '-name', 'squeak_mouse',
             '-z', '0.1'
         ],
         output='screen'
     )
 
-    # D. ROS-Gazebo Bridge
-    # This maps Gazebo topics to ROS 2 topics.
-    # Syntax: <topic_name>@<ros_type>[<gazebo_type>
+    # C. ROBOT STATE PUBLISHER (The "Invisible Robot" Fix)
+    # We delay this by 3 seconds to ensure Gazebo is ready and Time is synced.
+    node_robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        output='screen',
+        parameters=[{
+            'robot_description': robot_desc_xml,
+            'use_sim_time': True
+        }]
+    )
+    
+    # Wrap it in a Timer to prevent the race condition
+    delayed_robot_state_publisher = TimerAction(
+        period=3.0, 
+        actions=[node_robot_state_publisher]
+    )
+
+    # D. BRIDGE (The "Communication" Link)
     node_ros_gz_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            # 1. Clock (Sync time)
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-            # 2. Cmd_vel (ROS -> Gazebo) for moving
             '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-            # 3. Odometry (Gazebo -> ROS)
             '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            # 4. TF (Gazebo -> ROS) for map->odom->base_link
             '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            # 5. Lidar Scan (Gazebo -> ROS)
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            # 6. Camera Image (Gazebo -> ROS)
             '/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            # 7. IMU (Gazebo -> ROS)
-            '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU'
+            '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+            # NEW: Bridge the Joint States so the wheels don't error out!
+            # Note: The topic name might vary depending on your world file structure.
+            # Usually it is /world/<world_name>/model/<robot_name>/joint_state
+            '/world/maze/model/squeak_mouse/joint_state@sensor_msgs/msg/JointState[gz.msgs.Model'
+        ],
+        remappings=[
+            # Rename the long Gazebo topic to the standard ROS topic
+            ('/world/maze/model/squeak_mouse/joint_state', '/joint_states')
         ],
         output='screen'
     )
 
-    # E. Rviz2 (Visualization)
+    # E. RVIZ
     node_rviz = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config_file], # Load the config!
-        parameters=[{'use_sim_time': True}] # Force sim time
+        arguments=['-d', rviz_config_file],
+        parameters=[{'use_sim_time': True}]
     )
-    
-    # F. Fix Frame Mismatch
-    # Connects 'squeak_mouse/base_link/lidar' (Gazebo name) to 'lidar_link' (URDF name)
+
+    # F. LIDAR FRAME FIX
     node_tf_fix = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -104,9 +101,9 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        node_robot_state_publisher,
-        include_gazebo,
-        node_spawn_entity,
+        gazebo,
+        node_spawn,
+        delayed_robot_state_publisher, # Uses the delayed version!
         node_ros_gz_bridge,
         node_rviz,
         node_tf_fix
