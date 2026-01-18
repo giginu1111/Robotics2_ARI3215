@@ -45,12 +45,24 @@ class PacMouseNode(Node):
         ranges = msg.ranges
         size = len(ranges)
         
-        # Average a cone in front to be robust
-        front_indices = [0, 1, 2, size-1, size-2]
-        self.front_dist = sum([ranges[i] for i in front_indices]) / len(front_indices)
+        # Helper: Clean 'inf' values to 10.0 so math works
+        def clean_range(r):
+            return r if r < 100 else 10.0 # Arbitrary max range
         
-        self.left_dist = ranges[int(size/4)]   # 90 degrees
-        self.right_dist = ranges[int(size*3/4)] # 270 degrees
+        # 1. Front (Average of a cone)
+        # We handle wrapping: indices [358, 359, 0, 1, 2]
+        front_indices = [0, 1, 2, size-1, size-2]
+        clean_front = [clean_range(ranges[i]) for i in front_indices]
+        self.front_dist = sum(clean_front) / len(clean_front)
+        
+        # 2. Left (Approx 90 degrees)
+        self.left_dist = clean_range(ranges[min(int(size * 0.25), size-1)])
+        
+        # 3. Right (Approx 270 degrees)
+        self.right_dist = clean_range(ranges[min(int(size * 0.75), size-1)])
+
+        # Debug Print: Let's see what the robot sees!
+        # self.get_logger().info(f'Front: {self.front_dist:.2f} | Left: {self.left_dist:.2f}')
 
     def camera_callback(self, msg):
         # Convert ROS Image -> OpenCV Image
