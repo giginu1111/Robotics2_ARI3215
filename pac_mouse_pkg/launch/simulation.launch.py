@@ -93,11 +93,21 @@ def generate_launch_description():
         arguments=['-d', rviz_config_file], # Load the config!
         parameters=[{'use_sim_time': True}] # Force sim time
     )
+    
+    # F. Fix Frame Mismatch
+    # Connects 'squeak_mouse/base_link/lidar' (Gazebo name) to 'lidar_link' (URDF name)
+    node_tf_fix = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=['0', '0', '0', '0', '0', '0', 'lidar_link', 'squeak_mouse/base_link/lidar'],
+        output='screen'
+    )
 
     return LaunchDescription([
         node_robot_state_publisher,
         include_gazebo,
         node_spawn_entity,
         node_ros_gz_bridge,
-        node_rviz
+        node_rviz,
+        node_tf_fix
     ])
