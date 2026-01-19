@@ -113,12 +113,14 @@ def generate_launch_description():
 
     # 8. SLAM TOOLBOX (Jazzy Compatible)
     slam_config_file = os.path.join(pkg_share, 'config', 'slam_params.yaml')
-    node_slam = Node(
-        package='slam_toolbox',
-        executable='async_slam_toolbox_node',
-        name='slam_toolbox',
-        output='screen',
-        parameters=[slam_config_file, {'use_sim_time': True}]
+    toolbox_launch = IncludeLaunchDescription(
+    PythonLaunchDescriptionSource(
+        os.path.join(get_package_share_directory('slam_toolbox'), 'launch', 'online_async_launch.py')
+    ),
+    launch_arguments={
+        'slam_params_file': slam_config_file,
+        'use_sim_time': 'true'
+    }.items()
     )
 
     # 9. RVIZ
@@ -148,5 +150,6 @@ def generate_launch_description():
         gazebo,
         node_spawn,
         node_ros_gz_bridge,
-        delayed_nodes
+        delayed_nodes,
+        toolbox_launch
     ])
