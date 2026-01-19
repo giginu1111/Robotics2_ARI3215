@@ -31,7 +31,14 @@ def generate_launch_description():
     node_spawn = Node(
         package='ros_gz_sim',
         executable='create',
-        arguments=['-topic', '/robot_description', '-name', 'squeak_mouse', '-z', '0.1'],
+        arguments=[
+            '-topic', '/robot_description', 
+            '-name', 'squeak_mouse', 
+            '-x', '-3.0',  # Move back 3 meters
+            '-y', '-3.0',  # Move left 3 meters (Safe corner)
+            '-z', '0.1',   # Lift up slightly
+            '-Y', '0.0'    # Face East (0.0 radians)
+        ],
         output='screen'
     )
 
