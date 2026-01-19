@@ -224,46 +224,68 @@ class SmartMouse(Node):
         path.reverse()
         return path
 
+    # REPLACE THESE 3 METHODS IN YOUR CLASS
+
     def detect_frontiers(self):
         frontiers = []
         visited = np.zeros_like(self.grid, dtype=bool)
 
+        # Optimization: Don't check the outer 2 pixels (avoids index errors)
         for x in range(2, self.grid_size - 2):
             for y in range(2, self.grid_size - 2):
+                
+                # We only care about Free Space (0) that hasn't been grouped yet
                 if self.grid[x, y] == 0 and not visited[x, y]:
+                    
                     if self.is_frontier_cell(x, y):
+                        # Use 8-Way BFS to find the whole line
                         frontier = self.bfs_frontier(x, y, visited)
-                        if len(frontier) > 3:
+                        
+                        # Filter out tiny speckles (noise)
+                        if len(frontier) > 4:
                             frontiers.append(frontier)
         
         self.publish_markers(frontiers_list=frontiers)
         return frontiers
 
     def is_frontier_cell(self, x, y):
+        # A Frontier Cell must be:
+        # 1. Known Free Space (0)
+        # 2. Adjacent to at least one Unknown (-1)
+        
         if self.grid[x, y] != 0: return False
         
-        has_unknown = False
-        for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
-            if self.is_in_grid(x+dx, y+dy):
-                val = self.grid[x+dx, y+dy]
-                if val == -1: has_unknown = True
-                if val == 100: return False # Ignore if touching wall directly
-        return has_unknown
+        for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
+            nx, ny = x + dx, y + dy
+            if self.is_in_grid(nx, ny):
+                if self.grid[nx, ny] == -1: # Touching Unknown
+                    return True
+        return False
 
     def bfs_frontier(self, x, y, visited):
         q = deque([(x, y)])
         frontier = []
+        visited[x, y] = True
+
         while q:
             cx, cy = q.popleft()
-            if visited[cx, cy]: continue
-            visited[cx, cy] = True
             
+            # If it is a frontier cell, add it to the group
             if self.is_frontier_cell(cx, cy):
                 frontier.append((cx, cy))
-                for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
-                    nx, ny = cx+dx, cy+dy
-                    if self.is_in_grid(nx, ny): 
-                        q.append((nx, ny))
+                
+                # Check all 8 Neighbors (Diagonals included!)
+                # This prevents diagonal frontiers from breaking into tiny pieces
+                for dx in [-1, 0, 1]:
+                    for dy in [-1, 0, 1]:
+                        if dx == 0 and dy == 0: continue
+                        
+                        nx, ny = cx + dx, cy + dy
+                        if self.is_in_grid(nx, ny) and not visited[nx, ny]:
+                            # Critical: We only expand into Free Space (0)
+                            if self.grid[nx, ny] == 0:
+                                visited[nx, ny] = True
+                                q.append((nx, ny))
         return frontier
 
     def control_loop(self):
