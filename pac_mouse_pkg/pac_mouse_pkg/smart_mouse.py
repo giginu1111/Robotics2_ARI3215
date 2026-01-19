@@ -21,7 +21,7 @@ class SmartMouse(Node):
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.vis_pub = self.create_publisher(MarkerArray, '/visualization_marker_array', 10)
         
-        # FIX: QoS Profile for Map (Transient Local makes it stick for RViz)
+        # QoS for Map (Transient Local ensures RViz sees it even if it joins late)
         map_qos = QoSProfile(
             depth=1,
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
@@ -59,7 +59,13 @@ class SmartMouse(Node):
         self.unreachable_goals = [] 
         self.is_returning_home = False
         
-        self.get_logger().info("🐭 ROBUST MOUSE LOADED: QoS Fixed & Smart Homing Active.")
+        # --- STUCK RECOVERY ---
+        self.last_position = (0.0, 0.0)
+        self.stuck_timer = time.time()
+        self.recovery_mode = False
+        self.recovery_step = 0
+
+        self.get_logger().info("🐭 ROBUST MOUSE: Nose Dive Filter & Auto-Recovery Active.")
 
     def odom_callback(self, msg):
         self.robot_pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
@@ -68,47 +74,50 @@ class SmartMouse(Node):
         cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
         self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
 
-    # --- LIDAR MAPPING ---
+    # --- LIDAR MAPPING (WITH FILTERS) ---
     def scan_callback(self, msg):
         angle_min = msg.angle_min
         angle_inc = msg.angle_increment
         rx, ry = self.robot_pose
 
         for i, r in enumerate(msg.ranges):
-            is_max_range = False
-            # Filter bad data
-            if math.isinf(r) or math.isnan(r) or r > 4.0:
-                r = 4.0
-                is_max_range = True
-                
+            # --- FILTER 1: CLEANUP ---
+            # Ignore NaNs and Infs
+            if math.isnan(r) or math.isinf(r):
+                continue
+            
+            # --- FILTER 2: NOSE DIVE PROTECTION ---
+            # Ignore floor hits (> 3.5m) and self-hits (< 0.2m)
+            if r > 3.5 or r < 0.2:
+                continue
+
             angle = angle_min + i * angle_inc + self.robot_yaw
             
-            # Clear Free Space
+            # --- CLEARING FREE SPACE (Ghost Wall Fix) ---
+            # If the laser travels X meters, everything up to X MUST be empty.
+            # We overwrite any '100's here to "heal" the map from previous errors.
             for step in np.arange(0, r, self.resolution):
                 tx = rx + step * math.cos(angle)
                 ty = ry + step * math.sin(angle)
                 gx, gy = self.world_to_grid(tx, ty)
                 if self.is_in_grid(gx, gy):
-                    # Don't accidentally clear a known wall
-                    if self.grid[gx, gy] != 100: 
-                        self.grid[gx, gy] = 0
+                    self.grid[gx, gy] = 0  # Force clear
 
-            # Mark Walls
-            if not is_max_range:
-                wx = rx + r * math.cos(angle)
-                wy = ry + r * math.sin(angle)
-                gx, gy = self.world_to_grid(wx, wy)
-                if self.is_in_grid(gx, gy):
-                    self.grid[gx, gy] = 100
+            # --- MARKING OBSTACLES ---
+            wx = rx + r * math.cos(angle)
+            wy = ry + r * math.sin(angle)
+            gx, gy = self.world_to_grid(wx, wy)
+            if self.is_in_grid(gx, gy):
+                self.grid[gx, gy] = 100
 
     # --- SAFETY CHECK ---
     def is_safe_cell(self, x, y):
         """Returns True if cell is free AND not hugging a wall."""
         if not self.is_in_grid(x, y): return False
-        if self.grid[x, y] == 100: return False # It's a wall
-        if self.grid[x, y] == -1: return False # Unknown is unsafe for planning
+        if self.grid[x, y] == 100: return False
+        if self.grid[x, y] == -1: return False 
         
-        # INFLATION: Keep distance from walls
+        # INFLATION: Keep distance from walls (Radius 1 cell)
         for dx in [-1, 0, 1]:
             for dy in [-1, 0, 1]:
                 nx, ny = x + dx, y + dy
@@ -126,7 +135,7 @@ class SmartMouse(Node):
                 if self.grid[x, y] == 0 and not visited[x, y]:
                     if self.is_frontier_cell(x, y):
                         frontier = self.bfs_frontier(x, y, visited)
-                        if len(frontier) > 3:
+                        if len(frontier) > 3: # Ignore tiny noise holes
                             frontiers.append(frontier)
         
         self.publish_markers(frontiers_list=frontiers)
@@ -163,6 +172,7 @@ class SmartMouse(Node):
             gx, gy = int(fx), int(fy)
             wx, wy = self.grid_to_world(gx, gy)
 
+            # Skip if we already failed to go here
             if any(self.dist((wx, wy), bg) < 0.6 for bg in self.unreachable_goals):
                 continue
             
@@ -170,30 +180,14 @@ class SmartMouse(Node):
                 continue
 
             dist = math.hypot(wx - rx, wy - ry)
-            score = (len(f) * 0.5) - (dist * 1.5) 
+            # Heuristic: Prefer larger frontiers, but balance distance
+            score = (len(f) * 0.5) - (dist * 1.0) 
             
             if score > best_score:
                 best_score = score
                 best_goal = (wx, wy)
         
         return best_goal
-
-    # --- NAVIGATION HELPERS ---
-    def find_nearest_safe_goal(self, target_world):
-        """Spirals out from target to find the closest safe grid cell."""
-        tx, ty = self.world_to_grid(*target_world)
-        if self.is_safe_cell(tx, ty):
-            return target_world
-
-        # Spiral search (radius 1 to 10 cells)
-        for r in range(1, 10):
-            for dx in range(-r, r + 1):
-                for dy in range(-r, r + 1):
-                    if abs(dx) != r and abs(dy) != r: continue # Only check ring
-                    nx, ny = tx + dx, ty + dy
-                    if self.is_safe_cell(nx, ny):
-                        return self.grid_to_world(nx, ny)
-        return None
 
     # --- A* PATHFINDING ---
     def get_path(self, start_world, goal_world):
@@ -202,10 +196,9 @@ class SmartMouse(Node):
 
         if not self.is_in_grid(gx, gy): return None
 
-        # Try to find a safe goal near the request
+        # Spiral to find nearest safe node if goal is slightly inside a wall
         safe_goal = self.find_nearest_safe_goal(goal_world)
-        if safe_goal is None:
-             return None
+        if safe_goal is None: return None
         
         gx, gy = self.world_to_grid(*safe_goal)
 
@@ -217,7 +210,7 @@ class SmartMouse(Node):
         iterations = 0
         while open_set:
             iterations += 1
-            if iterations > 5000: return None 
+            if iterations > 4000: return None # Timeout
 
             _, cx, cy = heapq.heappop(open_set)
 
@@ -228,14 +221,26 @@ class SmartMouse(Node):
 
             for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
                 nx, ny = cx + dx, cy + dy
-                
                 if self.is_safe_cell(nx, ny):
                     new_g = g_score[(cx, cy)] + 1
                     if (nx, ny) not in g_score or new_g < g_score[(nx, ny)]:
                         g_score[(nx, ny)] = new_g
+                        # Manhattan heuristic
                         h = abs(nx - gx) + abs(ny - gy)
                         heapq.heappush(open_set, (new_g + h, nx, ny))
                         came_from[(nx, ny)] = (cx, cy)
+        return None
+
+    def find_nearest_safe_goal(self, target_world):
+        tx, ty = self.world_to_grid(*target_world)
+        if self.is_safe_cell(tx, ty): return target_world
+        # Spiral Check
+        for r in range(1, 6):
+            for dx in range(-r, r + 1):
+                for dy in range(-r, r + 1):
+                    nx, ny = tx + dx, ty + dy
+                    if self.is_safe_cell(nx, ny):
+                        return self.grid_to_world(nx, ny)
         return None
 
     def reconstruct_path(self, came_from, current):
@@ -247,120 +252,83 @@ class SmartMouse(Node):
         path.reverse()
         return path
 
-    # --- VISUALIZATION ---
-    def publish_map(self):
-        msg = OccupancyGrid()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = "odom"
-        
-        msg.info.resolution = self.resolution
-        msg.info.width = self.grid_size
-        msg.info.height = self.grid_size
-        msg.info.origin.position.x = - (self.grid_size * self.resolution) / 2.0
-        msg.info.origin.position.y = - (self.grid_size * self.resolution) / 2.0
-        msg.info.origin.position.z = 0.0
-        msg.info.origin.orientation.w = 1.0
-
-        flat_grid = self.grid.T.flatten().astype(np.int8)
-        msg.data = flat_grid.tolist()
-        
-        self.map_pub.publish(msg)
-
-    def publish_markers(self, frontiers_list=None, path_points=None):
-        markers = MarkerArray()
-        
-        if self.explore_goal:
-            m = Marker()
-            m.header.frame_id = "odom"
-            m.id = 0
-            m.type = Marker.SPHERE
-            m.action = Marker.ADD
-            m.pose.position.x, m.pose.position.y = self.explore_goal
-            m.scale.x = m.scale.y = m.scale.z = 0.3
-            m.color.a = 1.0; m.color.r = 1.0
-            markers.markers.append(m)
-
-        if path_points:
-            m = Marker()
-            m.header.frame_id = "odom"
-            m.id = 1
-            m.type = Marker.LINE_STRIP
-            m.action = Marker.ADD
-            m.scale.x = 0.05 
-            m.color.a = 1.0; m.color.g = 1.0
-            for px, py in path_points:
-                p = Point(); p.x = px; p.y = py
-                m.points.append(p)
-            markers.markers.append(m)
-
-        if frontiers_list:
-            m = Marker()
-            m.header.frame_id = "odom"
-            m.id = 2
-            m.type = Marker.POINTS
-            m.action = Marker.ADD
-            m.scale.x = m.scale.y = 0.1 
-            m.color.a = 1.0; m.color.b = 1.0
-            for f in frontiers_list:
-                for fx, fy in f:
-                    wx, wy = self.grid_to_world(fx, fy)
-                    p = Point(); p.x = wx; p.y = wy
-                    m.points.append(p)
-            markers.markers.append(m)
-
-        self.vis_pub.publish(markers)
-
     # --- MAIN LOOP ---
     def control_loop(self):
         cmd = Twist()
         now = time.time()
         
+        # 1. CHEESE LOGIC (Priority 1)
         if self.cheese_visible:
-            self.get_logger().info(f"🧀 CHEESE!", throttle_duration_sec=2.0)
-            cmd.linear.x = 0.2
-            cmd.angular.z = -0.005 * self.cheese_error
+            self.get_logger().info(f"🧀 CHEESE FOUND!", throttle_duration_sec=2.0)
+            cmd.linear.x = 0.0
+            if abs(self.cheese_error) > 20:
+                cmd.angular.z = -0.005 * self.cheese_error
+            else:
+                cmd.linear.x = 0.2 # Charge!
             self.cmd_pub.publish(cmd)
             self.path = [] 
             self.explore_goal = None
             return
 
-        # Check Goal Status
+        # 2. STUCK RECOVERY LOGIC
+        # If we aren't moving but are trying to, trigger recovery
+        dist_moved = self.dist(self.robot_pose, self.last_position)
+        if now - self.stuck_timer > 2.0:
+            if dist_moved < 0.1 and self.path and not self.recovery_mode:
+                self.get_logger().warn("⚠️ STUCK DETECTED: Initiating Recovery!")
+                self.recovery_mode = True
+                self.recovery_step = 0
+            
+            self.last_position = self.robot_pose
+            self.stuck_timer = now
+
+        if self.recovery_mode:
+            self.recovery_step += 1
+            if self.recovery_step < 15: # Back up for 1.5 sec
+                cmd.linear.x = -0.15
+                cmd.angular.z = 0.0
+            elif self.recovery_step < 30: # Spin for 1.5 sec
+                cmd.linear.x = 0.0
+                cmd.angular.z = 0.6
+            else:
+                self.recovery_mode = False
+                self.path = [] # Force replan
+                self.get_logger().info("✅ Recovery Complete. Replanning.")
+            self.cmd_pub.publish(cmd)
+            return
+
+        # 3. GOAL MANAGEMENT
         if (self.explore_goal is None or 
-            self.dist(self.robot_pose, self.explore_goal) < 0.3 or 
+            self.dist(self.robot_pose, self.explore_goal) < 0.4 or 
             (now - self.last_goal_time) > self.goal_timeout):
             
             frontiers = self.detect_frontiers()
             
             if not frontiers:
                 dist_to_start = self.dist(self.robot_pose, (0.0, 0.0))
-                
-                # Only backtrack if we are far away AND not already trying
                 if dist_to_start > 2.0 and not self.is_returning_home:
                     self.get_logger().warn("🔙 Done exploring. Returning Home.")
                     self.is_returning_home = True
-                    # Try (0,0) first, but allow safety shift
                     self.explore_goal = (0.0, 0.0)
-                    self.path = []
+                else:
+                    self.get_logger().info("✅ Mission Complete.")
+                    cmd.angular.z = 0.2
+                    self.cmd_pub.publish(cmd)
                     return
-                elif dist_to_start <= 2.0 or self.is_returning_home:
-                    self.get_logger().info("✅ Mission Complete. Spinning.")
-                    cmd.angular.z = 0.4
+            else:
+                new_goal = self.choose_frontier_goal(frontiers)
+                if new_goal:
+                    self.explore_goal = new_goal
+                    self.is_returning_home = False
+                    self.last_goal_time = now
+                    self.path = [] 
+                else:
+                    # Spin to find new frontiers
+                    cmd.angular.z = 0.5
                     self.cmd_pub.publish(cmd)
                     return
 
-            new_goal = self.choose_frontier_goal(frontiers)
-            if new_goal:
-                self.explore_goal = new_goal
-                self.is_returning_home = False # Found something new!
-                self.last_goal_time = now
-                self.path = [] 
-                self.publish_markers()
-            else:
-                cmd.angular.z = 0.4
-                self.cmd_pub.publish(cmd)
-                return
-
-        # Plan
+        # 4. PATH PLANNING
         if self.explore_goal and not self.path:
             self.path = self.get_path(self.robot_pose, self.explore_goal)
             if not self.path:
@@ -369,7 +337,7 @@ class SmartMouse(Node):
                 self.explore_goal = None
                 return
 
-        # Drive
+        # 5. PATH FOLLOWING
         if self.path:
             target_x, target_y = self.path[0]
             if self.dist(self.robot_pose, (target_x, target_y)) < 0.3:
@@ -377,18 +345,20 @@ class SmartMouse(Node):
             else:
                 angle_to_target = math.atan2(target_y - self.robot_pose[1], target_x - self.robot_pose[0])
                 angle_diff = angle_to_target - self.robot_yaw
+                # Normalize angle
                 while angle_diff > math.pi: angle_diff -= 2 * math.pi
                 while angle_diff < -math.pi: angle_diff += 2 * math.pi
 
                 if abs(angle_diff) > 0.4:
-                    cmd.angular.z = 0.6 if angle_diff > 0 else -0.6
+                    cmd.angular.z = 0.5 if angle_diff > 0 else -0.5
                     cmd.linear.x = 0.0
                 else:
-                    cmd.linear.x = 0.25
-                    cmd.angular.z = 0.8 * angle_diff
+                    cmd.linear.x = 0.22
+                    cmd.angular.z = 0.6 * angle_diff
         
         self.cmd_pub.publish(cmd)
 
+    # --- UTILS ---
     def world_to_grid(self, x, y):
         gx = int(x / self.resolution) + self.origin
         gy = int(y / self.resolution) + self.origin
@@ -405,6 +375,59 @@ class SmartMouse(Node):
     def dist(self, p1, p2):
         if p1 is None or p2 is None: return float('inf')
         return math.hypot(p1[0]-p2[0], p1[1]-p2[1])
+
+    # --- VISUALIZATION ---
+    def publish_map(self):
+        msg = OccupancyGrid()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = "odom"
+        msg.info.resolution = self.resolution
+        msg.info.width = self.grid_size
+        msg.info.height = self.grid_size
+        msg.info.origin.position.x = - (self.grid_size * self.resolution) / 2.0
+        msg.info.origin.position.y = - (self.grid_size * self.resolution) / 2.0
+        msg.data = self.grid.T.flatten().astype(np.int8).tolist()
+        self.map_pub.publish(msg)
+
+    def publish_markers(self, frontiers_list=None, path_points=None):
+        markers = MarkerArray()
+        # Goal Marker
+        if self.explore_goal:
+            m = Marker()
+            m.header.frame_id = "odom"
+            m.id = 0; m.type = Marker.SPHERE; m.action = Marker.ADD
+            m.pose.position.x, m.pose.position.y = self.explore_goal
+            m.scale.x = m.scale.y = m.scale.z = 0.3
+            m.color.a = 1.0; m.color.r = 0.0; m.color.g = 1.0; m.color.b = 0.0 # Green Goal
+            markers.markers.append(m)
+
+        # Path Marker
+        if path_points:
+            m = Marker()
+            m.header.frame_id = "odom"
+            m.id = 1; m.type = Marker.LINE_STRIP; m.action = Marker.ADD
+            m.scale.x = 0.05
+            m.color.a = 1.0; m.color.b = 1.0 # Blue Path
+            for px, py in path_points:
+                p = Point(); p.x = px; p.y = py
+                m.points.append(p)
+            markers.markers.append(m)
+        
+        # Frontier Marker
+        if frontiers_list:
+            m = Marker()
+            m.header.frame_id = "odom"
+            m.id = 2; m.type = Marker.POINTS; m.action = Marker.ADD
+            m.scale.x = m.scale.y = 0.1
+            m.color.a = 1.0; m.color.r = 1.0 # Red Frontiers
+            for f in frontiers_list:
+                for fx, fy in f:
+                    wx, wy = self.grid_to_world(fx, fy)
+                    p = Point(); p.x = wx; p.y = wy
+                    m.points.append(p)
+            markers.markers.append(m)
+        
+        self.vis_pub.publish(markers)
 
     def camera_callback(self, msg):
         try:
