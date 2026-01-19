@@ -42,6 +42,7 @@ setup(
     entry_points={
         'console_scripts': [
             'explorer = pac_mouse_pkg.explorer:main',
+            'smart_mouse = pac_mouse_pkg.smart_mouse:main',
         ],
     },
 )
