@@ -101,12 +101,14 @@ def generate_launch_description():
     )
 
     # 7. EKF (SENSOR FUSION)
+    ekf_config_file = os.path.join(pkg_share, 'config', 'ekf.yaml')
+    
     node_ekf = Node(
         package='robot_localization',
         executable='ekf_node',
         name='ekf_filter_node',
         output='screen',
-        parameters=[ekf_config_file, {'use_sim_time': True}]
+        parameters=[ekf_config_file, {'use_sim_time': True}] # <--- Check this line carefully!
     )
 
     # 8. SLAM TOOLBOX (Jazzy Compatible)
