@@ -19,8 +19,6 @@ class SmartMouse(Node):
 
         # --- ROS I/O ---
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
-        
-        # New: Publishers for Rviz
         self.vis_pub = self.create_publisher(MarkerArray, '/visualization_marker_array', 10)
         
         map_qos = QoSProfile(
@@ -37,13 +35,14 @@ class SmartMouse(Node):
 
         self.bridge = CvBridge()
         self.timer = self.create_timer(0.1, self.control_loop)
-        self.map_timer = self.create_timer(1.0, self.publish_map) # Publish map every 1s
+        self.map_timer = self.create_timer(1.0, self.publish_map) 
 
         # --- INTERNAL STATE ---
         self.cheese_visible = False
         self.cheese_error = 0
         self.robot_pose = (0.0, 0.0)
         self.robot_yaw = 0.0
+        self.mission_complete = False
 
         # --- MAP SETTINGS ---
         self.resolution = 0.15
@@ -53,11 +52,17 @@ class SmartMouse(Node):
 
         # --- NAVIGATION MEMORY ---
         self.explore_goal = None
-        self.path = []  # List of (x,y) waypoints
+        self.path = []
         self.last_goal_time = 0
-        self.goal_timeout = 20.0 
+        self.goal_timeout = 25.0 
+        self.unreachable_goals = [] # Blacklist bad goals
 
-        self.get_logger().info("🐭 A* SMART MOUSE: Ready to solve mazes!")
+        # --- STUCK RECOVERY ---
+        self.last_position = (0.0, 0.0)
+        self.stuck_timer = time.time()
+        self.recovery_mode = False
+
+        self.get_logger().info("🐭 DEBUG MOUSE: Logging Active. Ghost Walls Banned.")
 
     def odom_callback(self, msg):
         self.robot_pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
@@ -72,34 +77,74 @@ class SmartMouse(Node):
         rx, ry = self.robot_pose
 
         for i, r in enumerate(msg.ranges):
-            if math.isinf(r) or math.isnan(r): continue
-            
+            # FILTER: Ignore infinite/NaN and super close hits (self-collisions)
+            if math.isnan(r) or math.isinf(r) or r < 0.2:
+                continue
+
             angle = angle_min + i * angle_inc + self.robot_yaw
-            dist = min(r, 3.5) # Limit range for cleaner maps
             
-            # 1. Clear free space
-            for step in np.arange(0, dist, self.resolution):
+            # Cap Range at 6.0m to prevent mapping noise
+            if r > 6.0: 
+                valid_range = 6.0
+                hit = False
+            else:
+                valid_range = r
+                hit = True
+
+            # 1. AGGRESSIVELY CLEAR FREE SPACE
+            # We step slightly past the robot to ensure footprint is clear
+            for step in np.arange(0.2, valid_range, self.resolution):
                 tx = rx + step * math.cos(angle)
                 ty = ry + step * math.sin(angle)
                 gx, gy = self.world_to_grid(tx, ty)
                 if self.is_in_grid(gx, gy):
                     self.grid[gx, gy] = 0
 
-            # 2. Mark wall (slightly thicker to avoid clipping)
-            if r < 3.5:
+            # 2. MARK WALL (Only if it's a real hit)
+            if hit:
                 wx = rx + r * math.cos(angle)
                 wy = ry + r * math.sin(angle)
                 gx, gy = self.world_to_grid(wx, wy)
                 if self.is_in_grid(gx, gy):
-                    self.grid[gx, gy] = 100 # 100 = Occupied in ROS
+                    self.grid[gx, gy] = 100
 
-    # --- A* PATHFINDING ---
+    def is_safe_cell(self, x, y):
+        """ Returns True only if the cell AND neighbors are NOT walls """
+        if not self.is_in_grid(x, y): return False
+        if self.grid[x, y] == 100: return False # It is a wall
+        if self.grid[x, y] == -1: return False # Unknown
+        
+        # SAFETY BUFFER: Check 3x3 area around cell
+        margin = 1 
+        for dx in range(-margin, margin + 1):
+            for dy in range(-margin, margin + 1):
+                nx, ny = x + dx, y + dy
+                if self.is_in_grid(nx, ny) and self.grid[nx, ny] == 100:
+                    return False
+        return True
+
     def get_path(self, start_world, goal_world):
         sx, sy = self.world_to_grid(*start_world)
         gx, gy = self.world_to_grid(*goal_world)
 
-        if not self.is_in_grid(gx, gy) or not self.is_in_grid(sx, sy):
+        if not self.is_in_grid(gx, gy): 
+            self.get_logger().warn(f"⚠️ A* FAIL: Goal {gx},{gy} out of bounds.")
             return None
+        
+        # If goal is unsafe, try to find a neighbor that IS safe
+        if not self.is_safe_cell(gx, gy):
+            self.get_logger().warn(f"⚠️ A* WARN: Goal {gx},{gy} is unsafe (near wall). Searching neighbor...")
+            found_safe = False
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    if self.is_safe_cell(gx+dx, gy+dy):
+                        gx, gy = gx+dx, gy+dy
+                        found_safe = True
+                        break
+                if found_safe: break
+            if not found_safe:
+                self.get_logger().error(f"❌ A* FAIL: Goal strictly invalid (Wall).")
+                return None
 
         # A* Algorithm
         open_set = []
@@ -107,26 +152,33 @@ class SmartMouse(Node):
         came_from = {}
         g_score = { (sx, sy): 0 }
         
-        # Limit iterations to prevent freezing
         iterations = 0
         while open_set:
             iterations += 1
-            if iterations > 2000: return None 
+            if iterations > 4000: 
+                self.get_logger().error(f"❌ A* FAIL: Timeout (Too complex).")
+                return None 
 
             _, cx, cy = heapq.heappop(open_set)
 
             if (cx, cy) == (gx, gy):
-                return self.reconstruct_path(came_from, (cx, cy))
+                path = self.reconstruct_path(came_from, (cx, cy))
+                self.publish_markers(path_points=path)
+                return path
 
-            for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]: # 4-Connectivity
+            for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]: 
                 nx, ny = cx + dx, cy + dy
-                if self.is_in_grid(nx, ny) and self.grid[nx, ny] == 0: # Only drive on Free(0)
+                
+                # STRICT SAFETY: Only drive on safe cells
+                if self.is_safe_cell(nx, ny): 
                     new_g = g_score[(cx, cy)] + 1
                     if (nx, ny) not in g_score or new_g < g_score[(nx, ny)]:
                         g_score[(nx, ny)] = new_g
-                        h = abs(nx - gx) + abs(ny - gy) # Manhattan Distance Heuristic
+                        h = abs(nx - gx) + abs(ny - gy)
                         heapq.heappush(open_set, (new_g + h, nx, ny))
                         came_from[(nx, ny)] = (cx, cy)
+        
+        self.get_logger().error(f"❌ A* FAIL: No path found (Blocked?).")
         return None
 
     def reconstruct_path(self, came_from, current):
@@ -142,23 +194,28 @@ class SmartMouse(Node):
         frontiers = []
         visited = np.zeros_like(self.grid, dtype=bool)
 
-        for x in range(1, self.grid_size - 1):
-            for y in range(1, self.grid_size - 1):
+        for x in range(2, self.grid_size - 2): # Margin to avoid edges
+            for y in range(2, self.grid_size - 2):
                 if self.grid[x, y] == 0 and not visited[x, y]:
                     if self.is_frontier_cell(x, y):
                         frontier = self.bfs_frontier(x, y, visited)
-                        if len(frontier) > 3: 
+                        if len(frontier) > 3: # Ignore tiny noise
                             frontiers.append(frontier)
         
-        # VISUALIZE FRONTIERS
         self.publish_markers(frontiers_list=frontiers)
+        self.get_logger().info(f"🔎 Found {len(frontiers)} frontiers.")
         return frontiers
 
     def is_frontier_cell(self, x, y):
         if self.grid[x, y] != 0: return False
+        
+        has_unknown = False
         for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
-            if self.grid[x+dx, y+dy] == -1: return True
-        return False
+            if self.is_in_grid(x+dx, y+dy):
+                cell_val = self.grid[x+dx, y+dy]
+                if cell_val == -1: has_unknown = True
+                if cell_val == 100: return False # Discard if touching wall
+        return has_unknown
 
     def bfs_frontier(self, x, y, visited):
         q = deque([(x, y)])
@@ -167,11 +224,13 @@ class SmartMouse(Node):
             cx, cy = q.popleft()
             if visited[cx, cy]: continue
             visited[cx, cy] = True
+            
             if self.is_frontier_cell(cx, cy):
                 frontier.append((cx, cy))
                 for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
                     nx, ny = cx+dx, cy+dy
-                    if self.is_in_grid(nx, ny): q.append((nx, ny))
+                    if self.is_in_grid(nx, ny): 
+                        q.append((nx, ny))
         return frontier
 
     def choose_frontier_goal(self, frontiers):
@@ -183,6 +242,10 @@ class SmartMouse(Node):
             mid_idx = len(f) // 2
             gx, gy = f[mid_idx]
             wx, wy = self.grid_to_world(gx, gy)
+
+            # Check blacklist
+            if any(self.dist((wx, wy), bg) < 0.5 for bg in self.unreachable_goals):
+                continue
             
             dist = math.hypot(wx - rx, wy - ry)
             score = (len(f) * 0.5) - (dist * 1.0) 
@@ -190,66 +253,115 @@ class SmartMouse(Node):
             if score > best_score:
                 best_score = score
                 best_goal = (wx, wy)
+        
         return best_goal
 
     def control_loop(self):
         cmd = Twist()
         now = time.time()
         
-        # 1. Cheese Logic (Highest Priority)
+        # --- 0. MISSION COMPLETE ---
+        if self.mission_complete:
+            self.get_logger().info("🏆 MISSION COMPLETE: Stopping.", throttle_duration_sec=5.0)
+            self.cmd_pub.publish(Twist()) # Stop
+            return
+
+        # --- 1. CHEESE LOGIC (FIXED) ---
         if self.cheese_visible:
-            self.get_logger().info("CHEESE DETECTED!", throttle_duration_sec=2.0)
-            cmd.linear.x = 0.2
-            cmd.angular.z = -0.005 * self.cheese_error
+            # Check distance (roughly estimated by error or previous lidar)
+            # Just drive slow and straight
+            self.get_logger().info(f"🧀 CHEESE SEEN! Err: {self.cheese_error}", throttle_duration_sec=1.0)
+            
+            if abs(self.cheese_error) < 20: # Centered
+                cmd.linear.x = 0.15
+                cmd.angular.z = 0.0
+            else:
+                cmd.linear.x = 0.05
+                cmd.angular.z = -0.005 * self.cheese_error
+            
+            # STOP CONDITION: If we crashed into it (lidar check) or just trust visuals
+            # (Simple hack: stop if very close?)
+            # For now, let user manually stop or add lidar check here:
             self.cmd_pub.publish(cmd)
-            self.path = [] # Clear path
+            self.path = [] 
             self.explore_goal = None
             return
 
-        # 2. Goal Selection
+        # --- 2. STUCK CHECK ---
+        dist_moved = self.dist(self.robot_pose, self.last_position)
+        if now - self.stuck_timer > 3.0:
+            if dist_moved < 0.1 and self.path and not self.recovery_mode:
+                self.get_logger().warn("⚠️ STUCK DETECTED! Initiating recovery...")
+                self.recovery_mode = True
+            self.last_position = self.robot_pose
+            self.stuck_timer = now
+
+        if self.recovery_mode:
+            self.get_logger().warn("⚠️ RECOVERY: Backing up...", throttle_duration_sec=1.0)
+            cmd.linear.x = -0.1
+            cmd.angular.z = 0.5
+            self.cmd_pub.publish(cmd)
+            # Exit recovery after a bit
+            if now - self.stuck_timer > 1.5: # Run for 1.5s
+                 self.recovery_mode = False
+                 self.path = [] # Reset path
+                 self.explore_goal = None # Force new goal
+            return
+
+        # --- 3. GOAL SELECTION ---
         if (self.explore_goal is None or 
-            self.dist(self.robot_pose, self.explore_goal) < 0.3 or 
+            self.dist(self.robot_pose, self.explore_goal) < 0.4 or 
             (now - self.last_goal_time) > self.goal_timeout):
             
             frontiers = self.detect_frontiers()
             if frontiers:
-                self.explore_goal = self.choose_frontier_goal(frontiers)
-                self.last_goal_time = now
-                self.path = [] # Reset path for new goal
+                new_goal = self.choose_frontier_goal(frontiers)
+                if new_goal:
+                    self.explore_goal = new_goal
+                    self.last_goal_time = now
+                    self.path = []
+                    self.get_logger().info(f"🎯 NEW GOAL: {self.explore_goal}")
+                else:
+                    self.get_logger().warn("⚠️ Frontiers exist but all blacklisted/invalid.")
             else:
-                cmd.angular.z = 0.5 # Rotate to find something
+                self.get_logger().info("💤 No Frontiers. Map Complete?")
+                cmd.angular.z = 0.4 # Rotate to scan
                 self.cmd_pub.publish(cmd)
                 return
 
-        # 3. Path Planning (If we have a goal but no path)
+        # --- 4. PLAN ---
         if self.explore_goal and not self.path:
+            self.get_logger().info("🗺️ Planning path...")
             self.path = self.get_path(self.robot_pose, self.explore_goal)
-            self.publish_markers(path_points=self.path) # Visualize path
+            if not self.path:
+                self.get_logger().warn("❌ Path failed. Blacklisting goal.")
+                self.unreachable_goals.append(self.explore_goal)
+                self.explore_goal = None
+                return
 
-        # 4. Path Following
+        # --- 5. DRIVE ---
         if self.path:
-            # Look at the next waypoint
             target_x, target_y = self.path[0]
+            dist_to_wp = self.dist(self.robot_pose, (target_x, target_y))
             
-            # If we are close to the waypoint, remove it
-            if self.dist(self.robot_pose, (target_x, target_y)) < 0.2:
+            if dist_to_wp < 0.25:
                 self.path.pop(0)
             else:
-                # Drive towards waypoint
-                angle_to_target = math.atan2(target_y - self.robot_pose[1], 
-                                           target_x - self.robot_pose[0])
+                angle_to_target = math.atan2(target_y - self.robot_pose[1], target_x - self.robot_pose[0])
                 angle_diff = angle_to_target - self.robot_yaw
-                
-                # Normalize angle
                 while angle_diff > math.pi: angle_diff -= 2 * math.pi
                 while angle_diff < -math.pi: angle_diff += 2 * math.pi
 
-                cmd.linear.x = 0.15
-                cmd.angular.z = 1.2 * angle_diff
-        
+                if abs(angle_diff) > 0.5:
+                    cmd.linear.x = 0.0 # Turn in place
+                    cmd.angular.z = 0.6 if angle_diff > 0 else -0.6
+                else:
+                    cmd.linear.x = 0.22
+                    cmd.angular.z = 1.0 * angle_diff
+
         self.cmd_pub.publish(cmd)
 
-    # --- HELPERS ---
+    # --- UTILS ---
     def world_to_grid(self, x, y):
         gx = int(x / self.resolution) + self.origin
         gy = int(y / self.resolution) + self.origin
@@ -277,47 +389,41 @@ class SmartMouse(Node):
         msg.info.height = self.grid_size
         msg.info.origin.position.x = - (self.grid_size * self.resolution) / 2.0
         msg.info.origin.position.y = - (self.grid_size * self.resolution) / 2.0
-        # Flatten grid for ROS
         msg.data = self.grid.T.flatten().astype(np.int8).tolist()
         self.map_pub.publish(msg)
 
     def publish_markers(self, frontiers_list=None, path_points=None):
         markers = MarkerArray()
-        
-        # 1. Path Line
+        if self.explore_goal:
+            m = Marker()
+            m.header.frame_id = "odom"
+            m.id = 0; m.type = Marker.SPHERE; m.action = Marker.ADD
+            m.pose.position.x, m.pose.position.y = self.explore_goal
+            m.scale.x = m.scale.y = m.scale.z = 0.3
+            m.color.a = 1.0; m.color.g = 1.0 
+            markers.markers.append(m)
+
         if path_points:
             m = Marker()
             m.header.frame_id = "odom"
-            m.id = 0
-            m.type = Marker.LINE_STRIP
-            m.action = Marker.ADD
+            m.id = 1; m.type = Marker.LINE_STRIP; m.action = Marker.ADD
             m.scale.x = 0.05
-            m.color.a = 1.0
-            m.color.b = 1.0
+            m.color.a = 1.0; m.color.b = 1.0
             for px, py in path_points:
-                p = Point()
-                p.x = px
-                p.y = py
+                p = Point(); p.x = px; p.y = py
                 m.points.append(p)
             markers.markers.append(m)
         
-        # 2. Frontiers (Red dots)
         if frontiers_list:
             m = Marker()
             m.header.frame_id = "odom"
-            m.id = 1
-            m.type = Marker.POINTS
-            m.action = Marker.ADD
-            m.scale.x = 0.1
-            m.scale.y = 0.1
-            m.color.a = 1.0
-            m.color.r = 1.0
+            m.id = 2; m.type = Marker.POINTS; m.action = Marker.ADD
+            m.scale.x = m.scale.y = 0.1
+            m.color.a = 1.0; m.color.r = 1.0
             for f in frontiers_list:
                 for fx, fy in f:
                     wx, wy = self.grid_to_world(fx, fy)
-                    p = Point()
-                    p.x = wx
-                    p.y = wy
+                    p = Point(); p.x = wx; p.y = wy
                     m.points.append(p)
             markers.markers.append(m)
         
@@ -332,7 +438,7 @@ class SmartMouse(Node):
             self.cheese_visible = False
             if cnts:
                 c = max(cnts, key=cv2.contourArea)
-                if cv2.contourArea(c) > 200:
+                if cv2.contourArea(c) > 300: # Slightly larger area required
                     M = cv2.moments(c)
                     if M["m00"] > 0:
                         cx = int(M["m10"] / M["m00"])
