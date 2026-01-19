@@ -8,7 +8,7 @@ Panels:
         - /Status1
         - /RobotModel1
         - /LaserScan1
-        - /Map1
+        - /Brain (Markers)1
         - /Image1
       Splitter Ratio: 0.5
     Tree Height: 557
@@ -35,13 +35,24 @@ Visualization Manager:
       Enabled: true
       Name: RobotModel
       Value: true
-    # --- ADDED MAP DISPLAY ---
+    # --- ADDED: THE BRAIN VISUALIZATION ---
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Brain (Markers)
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /visualization_marker_array
+      Value: true
+    # --------------------------------------
     - Alpha: 0.7
       Class: rviz_default_plugins/Map
       Color Scheme: map
       Draw Behind: false
-      Enabled: true
-      Name: Map
+      Enabled: false
+      Name: Map (Only if SLAM running)
       Topic:
         Depth: 5
         Durability Policy: Transient Local
@@ -54,7 +65,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /map_updates
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 25; 0
@@ -81,8 +92,8 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    # NOTE: FIXED FRAME IS NOW MAP
-    Fixed Frame: map
+    # NOTE: Switched to odom because your Python script uses odom frame
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
