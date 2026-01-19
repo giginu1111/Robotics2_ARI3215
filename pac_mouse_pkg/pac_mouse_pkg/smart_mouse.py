@@ -28,7 +28,7 @@ class SmartMouse(Node):
             history=HistoryPolicy.KEEP_LAST,
             reliability=ReliabilityPolicy.RELIABLE
         )
-        self.map_pub = self.create_publisher(OccupancyGrid, '/map', map_qos)
+        self.map_pub = self.create_publisher(OccupancyGrid, '/mouse_map', map_qos)
 
         self.scan_sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
         self.cam_sub = self.create_subscription(Image, '/camera/image_raw', self.camera_callback, 10)

@@ -9,6 +9,7 @@ Panels:
         - /RobotModel1
         - /LaserScan1
         - /Brain (Markers)1
+        - /Mouse Internal Map1
         - /Image1
       Splitter Ratio: 0.5
     Tree Height: 557
@@ -35,7 +36,7 @@ Visualization Manager:
       Enabled: true
       Name: RobotModel
       Value: true
-    # --- ADDED: THE BRAIN VISUALIZATION ---
+    # --- VISUALIZATION MARKERS (Path & Frontiers) ---
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: Brain (Markers)
@@ -46,13 +47,33 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /visualization_marker_array
       Value: true
-    # --------------------------------------
+    # --- NEW: YOUR MOUSE'S INTERNAL MAP ---
     - Alpha: 0.7
       Class: rviz_default_plugins/Map
-      Color Scheme: map
+      Color Scheme: costmap
       Draw Behind: false
       Enabled: true
-      Name: Map (Only if SLAM running)
+      Name: Mouse Internal Map
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /mouse_map
+      Update Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /mouse_map_updates
+      Value: true
+    # --- SLAM MAP (Background Reference) ---
+    - Alpha: 0.3
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: SLAM Map (Reference)
       Topic:
         Depth: 5
         Durability Policy: Transient Local
@@ -65,7 +86,8 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /map_updates
-      Value: false
+      Value: true
+    # ---------------------------------------
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 25; 0
@@ -92,7 +114,6 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    # NOTE: Switched to odom because your Python script uses odom frame
     Fixed Frame: odom
     Frame Rate: 30
   Name: root
@@ -104,7 +125,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.0
+      Distance: 10.0
       Focal Point:
         X: 0
         Y: 0
