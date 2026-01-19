@@ -8,7 +8,13 @@ import numpy as np
 import math
 from enum import Enum
 from collections import deque
+from nav_msgs.msg import Odometry
 
+# In __init__
+self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
+
+def odom_callback(self, msg):
+    self.robot_pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
 
 # -------------------- STATES --------------------
 
@@ -74,25 +80,41 @@ class SmartMouse(Node):
 
         self.update_occupancy_grid(ranges)
 
-    def update_occupancy_grid(self, ranges):
-        angle_min = -math.pi
-        angle_inc = (2 * math.pi) / len(ranges)
+def update_occupancy_grid(self, ranges):
+    rx, ry = self.robot_pose
+    angle_min = -math.pi
+    angle_inc = (2 * math.pi) / len(ranges)
 
-        rx, ry = self.robot_pose
+    for i, r in enumerate(ranges):
+        angle = angle_min + i * angle_inc
+        
+        # 1. Determine the end point of the laser ray
+        # If the laser didn't hit anything, we treat it as "Max Range" for clearing space
+        is_hit = r < 9.5
+        dist = r if is_hit else 5.0 # Clear space up to 5m even if no wall hit
+        
+        # 2. Iterate along the ray to mark FREE space (0)
+        # We step through the ray in small increments (resolution / 2)
+        for step in np.arange(0, dist, self.resolution / 2):
+            tx = rx + step * math.cos(angle)
+            ty = ry + step * math.sin(angle)
+            gx = int(tx / self.resolution) + self.origin
+            gy = int(ty / self.resolution) + self.origin
+            
+            if 0 <= gx < self.grid_size and 0 <= gy < self.grid_size:
+                # If it's not a wall, mark it as free
+                if self.grid[gx, gy] != 1:
+                    self.grid[gx, gy] = 0
 
-        for i, r in enumerate(ranges):
-            if r >= 9.5:
-                continue
-
-            angle = angle_min + i * angle_inc
+        # 3. Mark the final point as a WALL (1) if it was a hit
+        if is_hit:
             wx = rx + r * math.cos(angle)
             wy = ry + r * math.sin(angle)
-
             gx = int(wx / self.resolution) + self.origin
             gy = int(wy / self.resolution) + self.origin
-
             if 0 <= gx < self.grid_size and 0 <= gy < self.grid_size:
-                self.grid[gx, gy] = 1  # wall
+                self.grid[gx, gy] = 1
+
 
     # -------------------- CAMERA --------------------
 
