@@ -1,6 +1,13 @@
 slam_toolbox:
   ros__parameters:
-    # Plugin params
+    # 1. CORE ROS FRAMES
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan
+    mode: mapping 
+
+    # 2. SOLVER (The Math)
     solver_plugin: solver_plugins::CeresSolver
     ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
     ceres_preconditioner: SCHUR_JACOBI
@@ -8,27 +15,20 @@ slam_toolbox:
     ceres_dogleg_type: TRADITIONAL_DOGLEG
     ceres_loss_function: None
 
-    # ROS Parameters
-    odom_frame: odom
-    map_frame: map
-    base_frame: base_link
-    scan_topic: /scan
-    mode: mapping # localization or mapping
-
-    # Tuning params (optimized for your simulation)
+    # 3. PERFORMANCE TUNING
     debug_logging: false
     throttle_scans: 1
-    transform_publish_period: 0.02 # Publish map TF faster (50Hz)
+    transform_publish_period: 0.05 # Publish map location 20 times a second
     map_update_interval: 0.5
     resolution: 0.05
-    max_laser_range: 10.0 # Match your lidar
+    max_laser_range: 12.0 
     minimum_time_interval: 0.1
     transform_timeout: 0.2
     tf_buffer_duration: 30.0
-    stack_size_to_use: 40000000 # Large stack for Jazzy
+    stack_size_to_use: 40000000 
     enable_interactive_mode: true
     
-    # General Processing
+    # 4. MATCHING (How to snap scans to walls)
     use_scan_matching: true
     use_scan_barycenter: true
     minimum_travel_distance: 0.0
