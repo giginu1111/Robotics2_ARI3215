@@ -67,7 +67,7 @@ class SmartMouse(Node):
         self.recovery_mode = False
         self.recovery_step = 0
 
-        self.get_logger().info("🐭 BIG VISION MOUSE: 8.0m Range & Safety Margins.")
+        self.get_logger().info("🐭 CRASH FIXED MOUSE: Bounds Checked & Smarter Margins.")
 
     def odom_callback(self, msg):
         self.robot_pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
@@ -82,16 +82,13 @@ class SmartMouse(Node):
         rx, ry = self.robot_pose
 
         for i, r in enumerate(msg.ranges):
-            # FILTER:
-            # 1. Ignore Nan/Inf
-            # 2. Ignore floor/ceiling (Updated to 8.0m as requested)
-            # 3. Ignore self-hits (< 0.2m)
+            # FILTER: 8.0m range, ignore close self-hits
             if math.isnan(r) or math.isinf(r) or r > 8.0 or r < 0.2:
                 continue
 
             angle = angle_min + i * angle_inc + self.robot_yaw
             
-            # 1. CLEAR FREE SPACE (Raytrace)
+            # 1. CLEAR FREE SPACE
             for step in np.arange(0, r, self.resolution):
                 tx = rx + step * math.cos(angle)
                 ty = ry + step * math.sin(angle)
@@ -107,19 +104,15 @@ class SmartMouse(Node):
                 self.grid[gx, gy] = 100
 
     def is_safe_cell(self, x, y, margin=1):
-        """
-        Returns True if cell is free.
-        margin=1: Standard driving (don't hit wall)
-        margin=2: Strict goal setting (don't get near wall)
-        """
+        """ Checks if cell is free AND neighbors are free (Safety Buffer) """
         if not self.is_in_grid(x, y): return False
-        if self.grid[x, y] == 100: return False # Wall
-        if self.grid[x, y] == -1: return False # Unknown
+        if self.grid[x, y] == 100: return False 
+        if self.grid[x, y] == -1: return False
         
-        # Check square radius around cell
         for dx in range(-margin, margin + 1):
             for dy in range(-margin, margin + 1):
                 nx, ny = x + dx, y + dy
+                # If neighbor is a wall, this cell is unsafe
                 if self.is_in_grid(nx, ny) and self.grid[nx, ny] == 100:
                     return False
         return True
@@ -128,8 +121,9 @@ class SmartMouse(Node):
         frontiers = []
         visited = np.zeros_like(self.grid, dtype=bool)
 
-        for x in range(1, self.grid_size - 1):
-            for y in range(1, self.grid_size - 1):
+        # Padding 2 instead of 1 to avoid edge crash logic entirely
+        for x in range(2, self.grid_size - 2):
+            for y in range(2, self.grid_size - 2):
                 if self.grid[x, y] == 0 and not visited[x, y]:
                     if self.is_frontier_cell(x, y):
                         frontier = self.bfs_frontier(x, y, visited)
@@ -140,9 +134,15 @@ class SmartMouse(Node):
         return frontiers
 
     def is_frontier_cell(self, x, y):
+        # A frontier is a known empty cell (0) next to an unknown cell (-1)
         if self.grid[x, y] != 0: return False
+        
         for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
-            if self.grid[x+dx, y+dy] == -1: return True
+            nx, ny = x + dx, y + dy
+            # FIX: BOUNDARY CHECK to prevent IndexError
+            if self.is_in_grid(nx, ny):
+                if self.grid[nx, ny] == -1: 
+                    return True
         return False
 
     def bfs_frontier(self, x, y, visited):
@@ -152,11 +152,13 @@ class SmartMouse(Node):
             cx, cy = q.popleft()
             if visited[cx, cy]: continue
             visited[cx, cy] = True
+            
             if self.is_frontier_cell(cx, cy):
                 frontier.append((cx, cy))
                 for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
                     nx, ny = cx+dx, cy+dy
-                    if self.is_in_grid(nx, ny): q.append((nx, ny))
+                    if self.is_in_grid(nx, ny): 
+                        q.append((nx, ny))
         return frontier
 
     def choose_frontier_goal(self, frontiers):
@@ -165,27 +167,24 @@ class SmartMouse(Node):
         rx, ry = self.robot_pose
 
         for f in frontiers:
-            # 1. Pick the raw middle point of the frontier
+            # 1. Pick middle of frontier
             mid_idx = len(f) // 2
             gx, gy = f[mid_idx]
             
-            # 2. SAFETY SHIFT: Ensure goal is not hugging a wall
-            # We ask for margin=2 (Strict Safety)
-            safe_grid_pos = self.find_nearest_safe_spot(gx, gy, margin=2)
+            # 2. SAFETY SHIFT: Reduced to Margin 1 (3x3 area)
+            # This prevents "Ruined Targets" where everything is rejected
+            safe_grid_pos = self.find_nearest_safe_spot(gx, gy, margin=1)
             
             if safe_grid_pos is None:
-                continue # This frontier is too dangerous / inaccessible
+                continue 
 
             sx, sy = safe_grid_pos
             wx, wy = self.grid_to_world(sx, sy)
 
-            # 3. Check if we already failed this specific area
             if any(self.dist((wx, wy), bg) < 0.6 for bg in self.unreachable_goals):
                 continue
             
             dist = math.hypot(wx - rx, wy - ry)
-            
-            # Score: Size is good, Distance is bad
             score = (len(f) * 0.5) - (dist * 1.0) 
             
             if score > best_score:
@@ -199,11 +198,7 @@ class SmartMouse(Node):
         gx, gy = self.world_to_grid(*goal_world)
 
         if not self.is_in_grid(gx, gy): return None
-        
-        # For PATHFINDING, we use standard safety (margin=1)
-        # We already ensured the GOAL was strict-safe (margin=2) in choose_frontier_goal
-        if not self.is_safe_cell(gx, gy, margin=1):
-             return None
+        if not self.is_safe_cell(gx, gy, margin=0): return None # Basic check
 
         open_set = []
         heapq.heappush(open_set, (0, sx, sy))
@@ -224,7 +219,7 @@ class SmartMouse(Node):
 
             for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
                 nx, ny = cx + dx, cy + dy
-                # Check standard safety for travel
+                # Pathfinding uses standard margin=1 (Stay away from walls)
                 if self.is_safe_cell(nx, ny, margin=1):
                     new_g = g_score[(cx, cy)] + 1
                     if (nx, ny) not in g_score or new_g < g_score[(nx, ny)]:
@@ -235,17 +230,14 @@ class SmartMouse(Node):
         return None
 
     def find_nearest_safe_spot(self, gx, gy, margin):
-        """Spirals out from grid (gx, gy) to find a cell that meets the safety margin."""
         if self.is_safe_cell(gx, gy, margin): 
             return (gx, gy)
         
-        # Search radius 1 to 5 cells outwards
-        for r in range(1, 6): 
+        # Spiral outward (up to 4 cells away)
+        for r in range(1, 5): 
             for dx in range(-r, r + 1):
                 for dy in range(-r, r + 1):
-                    # Only check the outer ring
                     if abs(dx) != r and abs(dy) != r: continue
-                    
                     nx, ny = gx + dx, gy + dy
                     if self.is_safe_cell(nx, ny, margin):
                         return (nx, ny)
@@ -321,7 +313,7 @@ class SmartMouse(Node):
                     self.last_goal_time = now
                     self.path = []
                 else:
-                    cmd.angular.z = 0.4
+                    cmd.angular.z = 0.4 # Scan if no safe goal found
                     self.cmd_pub.publish(cmd)
                     return
 
