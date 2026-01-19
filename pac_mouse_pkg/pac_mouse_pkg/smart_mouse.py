@@ -7,6 +7,7 @@ from cv_bridge import CvBridge
 import cv2
 import numpy as np
 import math
+import heapq  # <--- Added for A* Priority Queue
 from enum import Enum
 from collections import deque
 import time
@@ -41,12 +42,13 @@ class SmartMouse(Node):
         self.origin = self.grid_size // 2
         self.grid = np.full((self.grid_size, self.grid_size), -1, dtype=int) # -1=Unknown, 0=Free, 1=Wall
 
-        # --- GOAL PERSISTENCE ---
+        # --- GOAL & PATH PERSISTENCE ---
         self.explore_goal = None
+        self.path = []  # <--- Added to store the A* path
         self.last_goal_time = 0
         self.goal_timeout = 15.0 # Seconds to try one goal before switching
 
-        self.get_logger().info("🐭 Enhanced Smart Mouse Initialized")
+        self.get_logger().info("🐭 Enhanced Smart Mouse with A* Initialized")
 
     # --- ODOMETRY: Tracks real-world position ---
     def odom_callback(self, msg):
@@ -141,7 +143,58 @@ class SmartMouse(Node):
                 best_goal = (wx, wy)
         return best_goal
 
-    # --- CONTROL LOOP ---
+    # --- PATHFINDING: A* Algorithm (NEW) ---
+    def get_path(self, start_world, goal_world):
+        sx, sy = self.world_to_grid(*start_world)
+        gx, gy = self.world_to_grid(*goal_world)
+
+        # Safety: If goal is inside a wall or out of bounds, fail
+        if not self.is_in_grid(gx, gy) or self.grid[gx, gy] == 1:
+            return None
+
+        # Priority Queue for A*: (f_score, x, y)
+        open_set = []
+        heapq.heappush(open_set, (0, sx, sy))
+        
+        came_from = {}
+        g_score = { (sx, sy): 0 }
+        
+        while open_set:
+            _, cx, cy = heapq.heappop(open_set)
+
+            if (cx, cy) == (gx, gy):
+                return self.reconstruct_path(came_from, (cx, cy))
+
+            # Neighbors: Up, Down, Left, Right
+            for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
+                nx, ny = cx + dx, cy + dy
+                
+                # Check bounds. We treat -1 (Unknown) and 0 (Free) as valid. 1 is Wall.
+                if self.is_in_grid(nx, ny) and self.grid[nx, ny] != 1:
+                    new_g = g_score[(cx, cy)] + 1
+                    
+                    if (nx, ny) not in g_score or new_g < g_score[(nx, ny)]:
+                        g_score[(nx, ny)] = new_g
+                        f = new_g + self.heuristic((nx, ny), (gx, gy))
+                        heapq.heappush(open_set, (f, nx, ny))
+                        came_from[(nx, ny)] = (cx, cy)
+        
+        return None
+
+    def heuristic(self, a, b):
+        # Manhattan distance
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    def reconstruct_path(self, came_from, current):
+        path = []
+        while current in came_from:
+            wx, wy = self.grid_to_world(*current)
+            path.append((wx, wy))
+            current = came_from[current]
+        path.reverse()
+        return path
+
+    # --- CONTROL LOOP (UPDATED) ---
     def control_loop(self):
         cmd = Twist()
         
@@ -150,34 +203,63 @@ class SmartMouse(Node):
             cmd.linear.x = 0.2
             cmd.angular.z = -0.005 * self.cheese_error
             self.cmd_pub.publish(cmd)
+            self.path = [] # Clear path if distracted
             return
 
-        # Priority 2: Explore
-        # Check if we need a new goal
+        # Priority 2: Explore / Pathfind
         now = time.time()
+        
+        # Check if we need a NEW goal (Timeout or reached target)
         if (self.explore_goal is None or 
-            self.dist(self.robot_pose, self.explore_goal) < 0.4 or 
+            self.dist(self.robot_pose, self.explore_goal) < 0.3 or 
             (now - self.last_goal_time) > self.goal_timeout):
             
             frontiers = self.detect_frontiers()
-            self.explore_goal = self.choose_frontier_goal(frontiers)
-            self.last_goal_time = now
-            if self.explore_goal:
-                self.get_logger().info(f"New Goal: {self.explore_goal}")
-
-        # Basic Navigation towards goal
-        if self.explore_goal:
-            angle_to_goal = math.atan2(self.explore_goal[1] - self.robot_pose[1], 
-                                     self.explore_goal[0] - self.robot_pose[0])
-            angle_diff = angle_to_goal - self.robot_yaw
-            # Normalize angle
-            angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
+            new_goal = self.choose_frontier_goal(frontiers)
             
-            if abs(angle_diff) > 0.5:
-                cmd.angular.z = 0.6 if angle_diff > 0 else -0.6
+            if new_goal:
+                self.explore_goal = new_goal
+                self.last_goal_time = now
+                self.path = [] # Reset path for new goal
+                self.get_logger().info(f"New Goal Selected: {self.explore_goal}")
             else:
-                cmd.linear.x = 0.2
-                cmd.angular.z = 0.2 * angle_diff
+                # No frontiers found? Spin to find some
+                cmd.angular.z = 0.5
+                self.cmd_pub.publish(cmd)
+                return
+
+        # If we have a goal but NO path, Calculate one!
+        if self.explore_goal and not self.path:
+            self.path = self.get_path(self.robot_pose, self.explore_goal)
+            if not self.path:
+                # Goal unreachable? Invalidate it so we pick a new one next loop
+                self.explore_goal = None
+                return
+
+        # Follow the Path
+        if self.path:
+            # Get the next waypoint
+            target_x, target_y = self.path[0]
+            
+            # Are we close to this waypoint?
+            if self.dist(self.robot_pose, (target_x, target_y)) < 0.25:
+                self.path.pop(0) # Remove it, move to next
+            else:
+                # Drive towards waypoint
+                angle_to_target = math.atan2(target_y - self.robot_pose[1], 
+                                           target_x - self.robot_pose[0])
+                angle_diff = angle_to_target - self.robot_yaw
+                
+                # Normalize angle
+                while angle_diff > math.pi: angle_diff -= 2 * math.pi
+                while angle_diff < -math.pi: angle_diff += 2 * math.pi
+
+                if abs(angle_diff) > 0.4:
+                    cmd.angular.z = 0.6 if angle_diff > 0 else -0.6
+                    cmd.linear.x = 0.0
+                else:
+                    cmd.linear.x = 0.25
+                    cmd.angular.z = 0.8 * angle_diff
         
         self.cmd_pub.publish(cmd)
 
