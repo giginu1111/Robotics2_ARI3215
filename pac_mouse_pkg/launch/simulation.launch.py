@@ -76,11 +76,26 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
-    # 6. TF FIX (Lidar Link)
-    node_tf_fix = Node(
+    # 6. TF FIXES (Glue Gazebo frames to Robot frames)
+    
+    # Fix 1: Connect Lidar (Matches your echo output)
+    node_tf_lidar = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
+        name='tf_lidar_fix',
+        # Connect internal 'lidar_link' to Gazebo's 'squeak_mouse/base_link/lidar'
         arguments=['0', '0', '0', '0', '0', '0', 'lidar_link', 'squeak_mouse/base_link/lidar'],
+        parameters=[{'use_sim_time': True}],
+        output='screen'
+    )
+
+    # Fix 2: Connect Base Link (Fixes the "Map not existing" / EKF issue)
+    node_tf_base = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='tf_base_fix',
+        # Connect internal 'base_link' to Gazebo's 'squeak_mouse/base_link'
+        arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'squeak_mouse/base_link'],
         parameters=[{'use_sim_time': True}],
         output='screen'
     )
@@ -119,7 +134,8 @@ def generate_launch_description():
         actions=[
             node_robot_state_publisher, 
             node_joint_state_publisher, 
-            node_tf_fix, 
+            node_tf_lidar,  # <--- Added
+            node_tf_base,   # <--- Added
             node_ekf, 
             node_slam, 
             node_rviz
