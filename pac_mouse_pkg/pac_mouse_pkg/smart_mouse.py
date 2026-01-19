@@ -35,8 +35,7 @@ class SmartMouse(Node):
 
         self.bridge = CvBridge()
         self.timer = self.create_timer(0.1, self.control_loop)
-        self.map_timer = self.create_timer(1.0, self.publish_map) 
-
+        
         # --- INTERNAL STATE ---
         self.cheese_visible = False
         self.cheese_error = 0
@@ -49,7 +48,7 @@ class SmartMouse(Node):
 
         # --- MAP SETTINGS ---
         self.resolution = 0.15
-        self.grid_size = 120
+        self.grid_size = 200  # INCREASED: 30m x 30m Map
         self.origin = self.grid_size // 2
         self.grid = np.full((self.grid_size, self.grid_size), -1, dtype=int) 
 
@@ -60,6 +59,7 @@ class SmartMouse(Node):
         self.goal_timeout = 30.0 
         self.unreachable_goals = [] 
         self.is_returning_home = False
+        self.home_retry_timer = 0
         
         # --- STUCK RECOVERY ---
         self.last_position = (0.0, 0.0)
@@ -67,7 +67,7 @@ class SmartMouse(Node):
         self.recovery_mode = False
         self.recovery_step = 0
 
-        self.get_logger().info("🐭 CRASH FIXED MOUSE: Bounds Checked & Smarter Margins.")
+        self.get_logger().info("🐭 MEGA MOUSE: 30m Map & Desperation Mode Active.")
 
     def odom_callback(self, msg):
         self.robot_pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
@@ -82,7 +82,7 @@ class SmartMouse(Node):
         rx, ry = self.robot_pose
 
         for i, r in enumerate(msg.ranges):
-            # FILTER: 8.0m range, ignore close self-hits
+            # FILTER: 8.0m range
             if math.isnan(r) or math.isinf(r) or r > 8.0 or r < 0.2:
                 continue
 
@@ -102,9 +102,11 @@ class SmartMouse(Node):
             gx, gy = self.world_to_grid(wx, wy)
             if self.is_in_grid(gx, gy):
                 self.grid[gx, gy] = 100
+                
+        # Publish map every scan (approx 5Hz) or throttle if needed
+        self.publish_map()
 
     def is_safe_cell(self, x, y, margin=1):
-        """ Checks if cell is free AND neighbors are free (Safety Buffer) """
         if not self.is_in_grid(x, y): return False
         if self.grid[x, y] == 100: return False 
         if self.grid[x, y] == -1: return False
@@ -112,7 +114,6 @@ class SmartMouse(Node):
         for dx in range(-margin, margin + 1):
             for dy in range(-margin, margin + 1):
                 nx, ny = x + dx, y + dy
-                # If neighbor is a wall, this cell is unsafe
                 if self.is_in_grid(nx, ny) and self.grid[nx, ny] == 100:
                     return False
         return True
@@ -121,25 +122,22 @@ class SmartMouse(Node):
         frontiers = []
         visited = np.zeros_like(self.grid, dtype=bool)
 
-        # Padding 2 instead of 1 to avoid edge crash logic entirely
+        # Padding 2 to avoid edge crash
         for x in range(2, self.grid_size - 2):
             for y in range(2, self.grid_size - 2):
                 if self.grid[x, y] == 0 and not visited[x, y]:
                     if self.is_frontier_cell(x, y):
                         frontier = self.bfs_frontier(x, y, visited)
-                        if len(frontier) > 3: 
+                        if len(frontier) > 2: # Keep small frontiers too
                             frontiers.append(frontier)
         
         self.publish_markers(frontiers_list=frontiers)
         return frontiers
 
     def is_frontier_cell(self, x, y):
-        # A frontier is a known empty cell (0) next to an unknown cell (-1)
         if self.grid[x, y] != 0: return False
-        
         for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
             nx, ny = x + dx, y + dy
-            # FIX: BOUNDARY CHECK to prevent IndexError
             if self.is_in_grid(nx, ny):
                 if self.grid[nx, ny] == -1: 
                     return True
@@ -166,17 +164,26 @@ class SmartMouse(Node):
         best_goal = None
         rx, ry = self.robot_pose
 
+        # --- ATTEMPT 1: High Standards (Margin 1) ---
+        best_goal = self.evaluate_frontiers(frontiers, margin=1, rx=rx, ry=ry)
+        
+        # --- ATTEMPT 2: Desperation (Margin 0) ---
+        if best_goal is None:
+            self.get_logger().info("⚠️ No safe paths. Trying risky paths...", throttle_duration_sec=5.0)
+            best_goal = self.evaluate_frontiers(frontiers, margin=0, rx=rx, ry=ry)
+
+        return best_goal
+
+    def evaluate_frontiers(self, frontiers, margin, rx, ry):
+        best_score = -float('inf')
+        best_goal = None
+        
         for f in frontiers:
-            # 1. Pick middle of frontier
             mid_idx = len(f) // 2
             gx, gy = f[mid_idx]
             
-            # 2. SAFETY SHIFT: Reduced to Margin 1 (3x3 area)
-            # This prevents "Ruined Targets" where everything is rejected
-            safe_grid_pos = self.find_nearest_safe_spot(gx, gy, margin=1)
-            
-            if safe_grid_pos is None:
-                continue 
+            safe_grid_pos = self.find_nearest_safe_spot(gx, gy, margin=margin)
+            if safe_grid_pos is None: continue
 
             sx, sy = safe_grid_pos
             wx, wy = self.grid_to_world(sx, sy)
@@ -190,7 +197,6 @@ class SmartMouse(Node):
             if score > best_score:
                 best_score = score
                 best_goal = (wx, wy)
-        
         return best_goal
 
     def get_path(self, start_world, goal_world):
@@ -198,7 +204,8 @@ class SmartMouse(Node):
         gx, gy = self.world_to_grid(*goal_world)
 
         if not self.is_in_grid(gx, gy): return None
-        if not self.is_safe_cell(gx, gy, margin=0): return None # Basic check
+        # Basic check to prevent pathing into wall
+        if not self.is_safe_cell(gx, gy, margin=0): return None 
 
         open_set = []
         heapq.heappush(open_set, (0, sx, sy))
@@ -208,7 +215,7 @@ class SmartMouse(Node):
         iterations = 0
         while open_set:
             iterations += 1
-            if iterations > 5000: return None 
+            if iterations > 7000: return None 
 
             _, cx, cy = heapq.heappop(open_set)
 
@@ -219,8 +226,9 @@ class SmartMouse(Node):
 
             for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
                 nx, ny = cx + dx, cy + dy
-                # Pathfinding uses standard margin=1 (Stay away from walls)
-                if self.is_safe_cell(nx, ny, margin=1):
+                # Pathfinding checks Margin 0 (Basic Safety) to allow tight fits
+                # We rely on the Goal Selection to keep us generally safe
+                if self.is_safe_cell(nx, ny, margin=0): 
                     new_g = g_score[(cx, cy)] + 1
                     if (nx, ny) not in g_score or new_g < g_score[(nx, ny)]:
                         g_score[(nx, ny)] = new_g
@@ -230,10 +238,9 @@ class SmartMouse(Node):
         return None
 
     def find_nearest_safe_spot(self, gx, gy, margin):
-        if self.is_safe_cell(gx, gy, margin): 
-            return (gx, gy)
+        if self.is_safe_cell(gx, gy, margin): return (gx, gy)
         
-        # Spiral outward (up to 4 cells away)
+        # Spiral outward
         for r in range(1, 5): 
             for dx in range(-r, r + 1):
                 for dy in range(-r, r + 1):
@@ -302,7 +309,7 @@ class SmartMouse(Node):
                     self.is_returning_home = True
                     self.explore_goal = (0.0, 0.0)
                 else:
-                    self.get_logger().info("💤 Done.")
+                    self.get_logger().info("💤 Done. (Waiting for input)", throttle_duration_sec=5.0)
                     cmd.angular.z = 0.0
                     self.cmd_pub.publish(cmd)
                     return
@@ -312,8 +319,9 @@ class SmartMouse(Node):
                     self.explore_goal = new_goal
                     self.last_goal_time = now
                     self.path = []
+                    self.is_returning_home = False # Found something new!
                 else:
-                    cmd.angular.z = 0.4 # Scan if no safe goal found
+                    cmd.angular.z = 0.4
                     self.cmd_pub.publish(cmd)
                     return
 
@@ -321,8 +329,13 @@ class SmartMouse(Node):
         if self.explore_goal and not self.path:
             self.path = self.get_path(self.robot_pose, self.explore_goal)
             if not self.path:
-                self.unreachable_goals.append(self.explore_goal)
-                self.explore_goal = None
+                # If we can't path to Home, wait and try again later
+                if self.is_returning_home:
+                     self.get_logger().warn("❌ Can't find path Home. Retrying...", throttle_duration_sec=3.0)
+                     self.path = []
+                else:
+                    self.unreachable_goals.append(self.explore_goal)
+                    self.explore_goal = None
                 return
 
         # --- 5. DRIVE ---
