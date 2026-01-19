@@ -141,7 +141,6 @@ def generate_launch_description():
             node_tf_lidar,  # <--- Added
             node_tf_base,   # <--- Added
             node_ekf, 
-            node_slam, 
             node_rviz
         ]
     )
