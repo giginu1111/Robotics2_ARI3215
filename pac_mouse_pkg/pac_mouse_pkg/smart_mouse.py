@@ -20,7 +20,7 @@ class SmartMouse(Node):
         # --- ROS I/O ---
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.vis_pub = self.create_publisher(MarkerArray, '/visualization_marker_array', 10)
-        self.map_pub = self.create_publisher(OccupancyGrid, '/map', 1, 10) # <--- NEW MAP PUBLISHER
+        self.map_pub = self.create_publisher(OccupancyGrid, '/map', 10)
 
         self.scan_sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
         self.cam_sub = self.create_subscription(Image, '/camera/image_raw', self.camera_callback, 10)
