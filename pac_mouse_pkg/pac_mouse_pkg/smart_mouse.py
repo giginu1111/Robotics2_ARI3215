@@ -1,15 +1,15 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point, Pose, Quaternion
+from rclpy.qos import QoSProfile, DurabilityPolicy, HistoryPolicy, ReliabilityPolicy
+from geometry_msgs.msg import Twist, Point
 from sensor_msgs.msg import LaserScan, Image
-from nav_msgs.msg import Odometry, OccupancyGrid, MapMetaData
+from nav_msgs.msg import Odometry, OccupancyGrid
 from visualization_msgs.msg import Marker, MarkerArray
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
 import math
 import heapq
-from enum import Enum
 from collections import deque
 import time
 
@@ -20,7 +20,15 @@ class SmartMouse(Node):
         # --- ROS I/O ---
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.vis_pub = self.create_publisher(MarkerArray, '/visualization_marker_array', 10)
-        self.map_pub = self.create_publisher(OccupancyGrid, '/map', 10)
+        
+        # FIX: QoS Profile for Map (Transient Local makes it stick for RViz)
+        map_qos = QoSProfile(
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            reliability=ReliabilityPolicy.RELIABLE
+        )
+        self.map_pub = self.create_publisher(OccupancyGrid, '/map', map_qos)
 
         self.scan_sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
         self.cam_sub = self.create_subscription(Image, '/camera/image_raw', self.camera_callback, 10)
@@ -28,7 +36,7 @@ class SmartMouse(Node):
 
         self.bridge = CvBridge()
         self.timer = self.create_timer(0.1, self.control_loop)
-        self.map_timer = self.create_timer(1.0, self.publish_map) # Publish map every 1s
+        self.map_timer = self.create_timer(1.0, self.publish_map) 
 
         # --- INTERNAL STATE ---
         self.cheese_visible = False
@@ -49,8 +57,9 @@ class SmartMouse(Node):
         self.last_goal_time = 0
         self.goal_timeout = 25.0 
         self.unreachable_goals = [] 
+        self.is_returning_home = False
         
-        self.get_logger().info("🐭 SAFE MOUSE LOADED: Inflation enabled & Map Publishing ON.")
+        self.get_logger().info("🐭 ROBUST MOUSE LOADED: QoS Fixed & Smart Homing Active.")
 
     def odom_callback(self, msg):
         self.robot_pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
@@ -67,7 +76,7 @@ class SmartMouse(Node):
 
         for i, r in enumerate(msg.ranges):
             is_max_range = False
-            # Fix infinite hallway bug
+            # Filter bad data
             if math.isinf(r) or math.isnan(r) or r > 4.0:
                 r = 4.0
                 is_max_range = True
@@ -80,11 +89,11 @@ class SmartMouse(Node):
                 ty = ry + step * math.sin(angle)
                 gx, gy = self.world_to_grid(tx, ty)
                 if self.is_in_grid(gx, gy):
-                    # Don't accidentally clear a known wall with a noisy reading
+                    # Don't accidentally clear a known wall
                     if self.grid[gx, gy] != 100: 
                         self.grid[gx, gy] = 0
 
-            # Mark Walls (Use 100 for wall now, standard ROS convention)
+            # Mark Walls
             if not is_max_range:
                 wx = rx + r * math.cos(angle)
                 wy = ry + r * math.sin(angle)
@@ -92,14 +101,14 @@ class SmartMouse(Node):
                 if self.is_in_grid(gx, gy):
                     self.grid[gx, gy] = 100
 
-    # --- SAFETY CHECK (The Anti-Wall-Hugger) ---
+    # --- SAFETY CHECK ---
     def is_safe_cell(self, x, y):
         """Returns True if cell is free AND not hugging a wall."""
         if not self.is_in_grid(x, y): return False
         if self.grid[x, y] == 100: return False # It's a wall
+        if self.grid[x, y] == -1: return False # Unknown is unsafe for planning
         
-        # INFLATION: Check neighbors. If ANY neighbor is a wall, this spot is unsafe.
-        # This keeps the robot 1 cell (0.15m) away from walls.
+        # INFLATION: Keep distance from walls
         for dx in [-1, 0, 1]:
             for dy in [-1, 0, 1]:
                 nx, ny = x + dx, y + dy
@@ -117,14 +126,13 @@ class SmartMouse(Node):
                 if self.grid[x, y] == 0 and not visited[x, y]:
                     if self.is_frontier_cell(x, y):
                         frontier = self.bfs_frontier(x, y, visited)
-                        if len(frontier) > 3: # Slight relax on size
+                        if len(frontier) > 3:
                             frontiers.append(frontier)
         
         self.publish_markers(frontiers_list=frontiers)
         return frontiers
 
     def is_frontier_cell(self, x, y):
-        # A frontier is a known free cell (0) next to an unknown cell (-1)
         if self.grid[x, y] != 0: return False
         for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
             if self.grid[x+dx, y+dy] == -1: return True
@@ -155,11 +163,9 @@ class SmartMouse(Node):
             gx, gy = int(fx), int(fy)
             wx, wy = self.grid_to_world(gx, gy)
 
-            # 1. Blacklist check
             if any(self.dist((wx, wy), bg) < 0.6 for bg in self.unreachable_goals):
                 continue
             
-            # 2. Safety Check: Don't pick a goal inside the inflation zone
             if not self.is_safe_cell(gx, gy):
                 continue
 
@@ -172,26 +178,36 @@ class SmartMouse(Node):
         
         return best_goal
 
-    # --- A* PATHFINDING (With Inflation) ---
+    # --- NAVIGATION HELPERS ---
+    def find_nearest_safe_goal(self, target_world):
+        """Spirals out from target to find the closest safe grid cell."""
+        tx, ty = self.world_to_grid(*target_world)
+        if self.is_safe_cell(tx, ty):
+            return target_world
+
+        # Spiral search (radius 1 to 10 cells)
+        for r in range(1, 10):
+            for dx in range(-r, r + 1):
+                for dy in range(-r, r + 1):
+                    if abs(dx) != r and abs(dy) != r: continue # Only check ring
+                    nx, ny = tx + dx, ty + dy
+                    if self.is_safe_cell(nx, ny):
+                        return self.grid_to_world(nx, ny)
+        return None
+
+    # --- A* PATHFINDING ---
     def get_path(self, start_world, goal_world):
         sx, sy = self.world_to_grid(*start_world)
         gx, gy = self.world_to_grid(*goal_world)
 
-        # Basic bounds check
         if not self.is_in_grid(gx, gy): return None
 
-        # If goal is unsafe (too close to wall), try to find a safer neighbor
-        if not self.is_safe_cell(gx, gy):
-            self.get_logger().info("⚠️ Goal is unsafe. Shifting slightly...")
-            found_safe = False
-            for dx in range(-2, 3):
-                for dy in range(-2, 3):
-                    if self.is_safe_cell(gx+dx, gy+dy):
-                        gx, gy = gx+dx, gy+dy
-                        found_safe = True
-                        break
-                if found_safe: break
-            if not found_safe: return None
+        # Try to find a safe goal near the request
+        safe_goal = self.find_nearest_safe_goal(goal_world)
+        if safe_goal is None:
+             return None
+        
+        gx, gy = self.world_to_grid(*safe_goal)
 
         open_set = []
         heapq.heappush(open_set, (0, sx, sy))
@@ -201,7 +217,7 @@ class SmartMouse(Node):
         iterations = 0
         while open_set:
             iterations += 1
-            if iterations > 4000: return None 
+            if iterations > 5000: return None 
 
             _, cx, cy = heapq.heappop(open_set)
 
@@ -213,7 +229,6 @@ class SmartMouse(Node):
             for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
                 nx, ny = cx + dx, cy + dy
                 
-                # USE SAFE CELL CHECK HERE (Includes Inflation)
                 if self.is_safe_cell(nx, ny):
                     new_g = g_score[(cx, cy)] + 1
                     if (nx, ny) not in g_score or new_g < g_score[(nx, ny)]:
@@ -234,7 +249,6 @@ class SmartMouse(Node):
 
     # --- VISUALIZATION ---
     def publish_map(self):
-        # Create standard ROS Map message
         msg = OccupancyGrid()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = "odom"
@@ -247,10 +261,6 @@ class SmartMouse(Node):
         msg.info.origin.position.z = 0.0
         msg.info.origin.orientation.w = 1.0
 
-        # Flatten grid for ROS (Row-major)
-        # We need to map our -1, 0, 100 correctly. 
-        # Thankfully our internal values match ROS standards (-1=unknown, 0=free, 100=wall)
-        # We just need to transpose because numpy is (row, col) but ROS map is (x, y)
         flat_grid = self.grid.T.flatten().astype(np.int8)
         msg.data = flat_grid.tolist()
         
@@ -323,13 +333,17 @@ class SmartMouse(Node):
             
             if not frontiers:
                 dist_to_start = self.dist(self.robot_pose, (0.0, 0.0))
-                if dist_to_start > 1.5:
-                    self.get_logger().warn("🔙 Stuck! Backtracking.")
+                
+                # Only backtrack if we are far away AND not already trying
+                if dist_to_start > 2.0 and not self.is_returning_home:
+                    self.get_logger().warn("🔙 Done exploring. Returning Home.")
+                    self.is_returning_home = True
+                    # Try (0,0) first, but allow safety shift
                     self.explore_goal = (0.0, 0.0)
                     self.path = []
                     return
-                else:
-                    self.get_logger().info("✅ Map Done. Spinning.")
+                elif dist_to_start <= 2.0 or self.is_returning_home:
+                    self.get_logger().info("✅ Mission Complete. Spinning.")
                     cmd.angular.z = 0.4
                     self.cmd_pub.publish(cmd)
                     return
@@ -337,6 +351,7 @@ class SmartMouse(Node):
             new_goal = self.choose_frontier_goal(frontiers)
             if new_goal:
                 self.explore_goal = new_goal
+                self.is_returning_home = False # Found something new!
                 self.last_goal_time = now
                 self.path = [] 
                 self.publish_markers()
