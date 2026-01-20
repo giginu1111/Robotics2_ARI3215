@@ -14,7 +14,7 @@ def generate_launch_description():
     mouse_doc = xacro.process_file(mouse_xacro)
     mouse_desc = mouse_doc.toxml()
 
-    cat_xacro = os.path.join(pkg_share, 'urdf', 'cat_fixed.urdf.xacro')
+    cat_xacro = os.path.join(pkg_share, 'urdf', 'cat.urdf.xacro')
     cat_doc = xacro.process_file(cat_xacro)
     cat_desc = cat_doc.toxml()
 
