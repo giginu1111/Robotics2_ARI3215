@@ -30,34 +30,34 @@ def generate_launch_description():
         launch_arguments={'gz_args': f'-r {world_file}'}.items()
     )
 
-    # 2. SPAWN MOUSE (bottom-left corner)
+    # 2. SPAWN MOUSE (using -string argument to pass description directly)
     spawn_mouse = Node(
         package='ros_gz_sim',
         executable='create',
         name='spawn_mouse',
         arguments=[
-            '-topic', 'robot_description_mouse',
+            '-string', mouse_desc,
             '-name', 'mouse_robot',
             '-x', '-4.5',
             '-y', '-4.5',
             '-z', '0.1',
-            '-Y', '0.785'  # Face northeast
+            '-Y', '0.785'
         ],
         output='screen'
     )
 
-    # 3. SPAWN CAT (top-right corner)
+    # 3. SPAWN CAT (using -string argument to pass description directly)
     spawn_cat = Node(
         package='ros_gz_sim',
         executable='create',
         name='spawn_cat',
         arguments=[
-            '-topic', 'robot_description_cat',
+            '-string', cat_desc,
             '-name', 'cat_robot',
             '-x', '4.5',
             '-y', '4.5',
             '-z', '0.1',
-            '-Y', '-2.356'  # Face southwest
+            '-Y', '-2.356'
         ],
         output='screen'
     )
@@ -102,8 +102,7 @@ def generate_launch_description():
         parameters=[{
             'robot_description': mouse_desc,
             'use_sim_time': True
-        }],
-        remappings=[('/robot_description', '/robot_description_mouse')]
+        }]
     )
 
     cat_state_pub = Node(
@@ -114,11 +113,10 @@ def generate_launch_description():
         parameters=[{
             'robot_description': cat_desc,
             'use_sim_time': True
-        }],
-        remappings=[('/robot_description', '/robot_description_cat')]
+        }]
     )
 
-    # 7. CHEESE MANAGER (NEW!)
+    # 7. CHEESE MANAGER
     cheese_manager = Node(
         package='pac_mouse_pkg',
         executable='cheese_manager',
@@ -154,9 +152,9 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
-    # DELAYED NODES
+    # DELAYED NODES (spawn robots immediately, others after delay)
     delayed_nodes = TimerAction(
-        period=5.0,
+        period=3.0,
         actions=[
             mouse_state_pub,
             cat_state_pub,
