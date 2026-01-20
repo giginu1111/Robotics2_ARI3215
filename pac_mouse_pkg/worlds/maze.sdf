@@ -31,143 +31,26 @@
                 </visual>
             </link>
         </model>
-        <model name="wall_north">
-            <static>true</static>
-            <link name="link">
-                <pose>0 7 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>14.3 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>14.3 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
+        <model name="wall_north"><static>true</static><link name="l"><pose>0 7 0.5 0 0 0</pose><collision name="c"><geometry><box><size>14.3 0.15 1</size></box></geometry></collision><visual name="v"><geometry><box><size>14.3 0.15 1</size></box></geometry></visual></link></model>
+        <model name="wall_south"><static>true</static><link name="l"><pose>0 -7 0.5 0 0 0</pose><collision name="c"><geometry><box><size>14.3 0.15 1</size></box></geometry></collision><visual name="v"><geometry><box><size>14.3 0.15 1</size></box></geometry></visual></link></model>
+        <model name="wall_east"><static>true</static><link name="l"><pose>7 0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 14.3 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 14.3 1</size></box></geometry></visual></link></model>
+        <model name="wall_west"><static>true</static><link name="l"><pose>-7 0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 14.3 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 14.3 1</size></box></geometry></visual></link></model>
 
-        <!-- South -->
-        <model name="wall_south">
-            <static>true</static>
-            <link name="link">
-                <pose>0 -7 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>14.3 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>14.3 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
+        <model name="center_n"><static>true</static><link name="l"><pose>0 1.5 0.5 0 0 0</pose><collision name="c"><geometry><box><size>4.0 0.15 1</size></box></geometry></collision><visual name="v"><geometry><box><size>4.0 0.15 1</size></box></geometry></visual></link></model>
+        <model name="center_s"><static>true</static><link name="l"><pose>0 -1.5 0.5 0 0 0</pose><collision name="c"><geometry><box><size>4.0 0.15 1</size></box></geometry></collision><visual name="v"><geometry><box><size>4.0 0.15 1</size></box></geometry></visual></link></model>
+        <model name="center_e"><static>true</static><link name="l"><pose>2.0 0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 3.0 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 3.0 1</size></box></geometry></visual></link></model>
+        <model name="center_w"><static>true</static><link name="l"><pose>-2.0 0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 3.0 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 3.0 1</size></box></geometry></visual></link></model>
 
-        <!-- East -->
-        <model name="wall_east">
-            <static>true</static>
-            <link name="link">
-                <pose>7 0 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>0.15 14.3 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>0.15 14.3 1</size></box></geometry></visual>
-            </link>
-        </model>
+        <model name="mid_n"><static>true</static><link name="l"><pose>0 4.8 0.5 0 0 0</pose><collision name="c"><geometry><box><size>6.0 0.15 1</size></box></geometry></collision><visual name="v"><geometry><box><size>6.0 0.15 1</size></box></geometry></visual></link></model>
+        <model name="mid_s"><static>true</static><link name="l"><pose>0 -4.8 0.5 0 0 0</pose><collision name="c"><geometry><box><size>6.0 0.15 1</size></box></geometry></collision><visual name="v"><geometry><box><size>6.0 0.15 1</size></box></geometry></visual></link></model>
 
-        <!-- West -->
-        <model name="wall_west">
-            <static>true</static>
-            <link name="link">
-                <pose>-7 0 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>0.15 14.3 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>0.15 14.3 1</size></box></geometry></visual>
-            </link>
-        </model>
+        <model name="tooth_1"><static>true</static><link name="l"><pose>-1.2 3.0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 2.0 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 2.0 1</size></box></geometry></visual></link></model>
+        <model name="tooth_2"><static>true</static><link name="l"><pose>1.2 3.0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 2.0 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 2.0 1</size></box></geometry></visual></link></model>
+        <model name="tooth_3"><static>true</static><link name="l"><pose>-1.2 -3.0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 2.0 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 2.0 1</size></box></geometry></visual></link></model>
+        <model name="tooth_4"><static>true</static><link name="l"><pose>1.2 -3.0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 2.0 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 2.0 1</size></box></geometry></visual></link></model>
 
-        <!-- ===================== CENTRAL BOX (PAC CORE) ===================== -->
-        <model name="center_box_n">
-            <static>true</static>
-            <link name="link">
-                <pose>0 1.5 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>4.0 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>4.0 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <model name="center_box_s">
-            <static>true</static>
-            <link name="link">
-                <pose>0 -1.5 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>4.0 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>4.0 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <model name="center_box_e">
-            <static>true</static>
-            <link name="link">
-                <pose>2.0 0 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>0.15 3.0 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>0.15 3.0 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <model name="center_box_w">
-            <static>true</static>
-            <link name="link">
-                <pose>-2.0 0 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>0.15 3.0 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>0.15 3.0 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <!-- ===================== SIDE TUNNELS (PAC LOOPS) ===================== -->
-        <!-- Left loop -->
-        <model name="left_loop_top">
-            <static>true</static>
-            <link name="link">
-                <pose>-4.5 3.5 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>3.0 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>3.0 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <model name="left_loop_bottom">
-            <static>true</static>
-            <link name="link">
-                <pose>-4.5 -3.5 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>3.0 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>3.0 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <!-- Right loop -->
-        <model name="right_loop_top">
-            <static>true</static>
-            <link name="link">
-                <pose>4.5 3.5 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>3.0 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>3.0 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <model name="right_loop_bottom">
-            <static>true</static>
-            <link name="link">
-                <pose>4.5 -3.5 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>3.0 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>3.0 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <!-- ===================== HORIZONTAL CONNECTORS ===================== -->
-        <model name="mid_corridor_n">
-            <static>true</static>
-            <link name="link">
-                <pose>0 4.8 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>6.0 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>6.0 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <model name="mid_corridor_s">
-            <static>true</static>
-            <link name="link">
-                <pose>0 -4.8 0.5 0 0 0</pose>
-                <collision name="c"><geometry><box><size>6.0 0.15 1</size></box></geometry></collision>
-                <visual name="v"><geometry><box><size>6.0 0.15 1</size></box></geometry></visual>
-            </link>
-        </model>
-
-        <!-- ====================================================================== -->
-        <!-- ====================== END OF MAZE GEOMETRY ========================== -->
-        <!-- ====================================================================== -->
+        <model name="side_pocket_l"><static>true</static><link name="l"><pose>-4.5 0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 2.5 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 2.5 1</size></box></geometry></visual></link></model>
+        <model name="side_pocket_r"><static>true</static><link name="l"><pose>4.5 0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 2.5 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 2.5 1</size></box></geometry></visual></link></model>
 
 
     </world>
