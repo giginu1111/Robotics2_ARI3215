@@ -34,8 +34,8 @@ def generate_launch_description():
         arguments=[
             '-topic', '/robot_description', 
             '-name', 'squeak_mouse', 
-            '-x', '-3.0',  # Move back 3 meters
-            '-y', '-3.0',  # Move left 3 meters (Safe corner)
+            '-x', '-7.2',  # Move back 3 meters
+            '-y', '-7.2',  # Move left 3 meters (Safe corner)
             '-z', '0.1',   # Lift up slightly
             '-Y', '0.0'    # Face East (0.0 radians)
         ],
