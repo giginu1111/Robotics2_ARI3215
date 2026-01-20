@@ -12,17 +12,21 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        
         # 1. Install Launch Files
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         
         # 2. Install URDF/Xacro Files
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*')),
         
-        # 3. Install World Files (for the next step)
+        # 3. Install World Files
         (os.path.join('share', package_name, 'worlds'), glob('worlds/*')),
         
-        # 4 Install Rviz Files
+        # 4. Install Rviz Files
         (os.path.join('share', package_name, 'rviz'), glob('rviz/*.rviz')),
+
+        # 5. Install Config Files (ADD THIS LINE HERE!)
+        (os.path.join('share', package_name, 'config'), glob('config/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -38,6 +42,8 @@ setup(
     entry_points={
         'console_scripts': [
             'explorer = pac_mouse_pkg.explorer:main',
+            'smart_mouse = pac_mouse_pkg.smart_mouse:main',
+            'smart_mouse_hew = pac_mouse_pkg.smart_mouse_hew:main',
         ],
     },
 )

@@ -1,0 +1,41 @@
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true  # <--- VERY IMPORTANT
+    frequency: 30.0
+    sensor_timeout: 0.2
+    two_d_mode: true
+    publish_acceleration: false
+    publish_tf: true    # <--- Force it to publish the missing link
+    
+    map_frame: map              
+    odom_frame: odom            
+    base_link_frame: base_link  
+    world_frame: odom           
+
+    # 1. WHEEL ODOMETRY (From Gazebo Bridge)
+    odom0: /odom
+    # The config matrix: [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    # We only trust the Velocities (vx, vy, vyaw) because position jumps around.
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]
+    odom0_queue_size: 10
+    odom0_nodelay: true
+    odom0_differential: false
+    odom0_relative: false
+
+    # 2. IMU (From Gazebo Bridge)
+    imu0: /imu
+    # Trust Orientation (roll, pitch, yaw) and Angular Velocity (vroll, vpitch, vyaw)
+    imu0_config: [false, false, false,
+                  true,  true,  true,
+                  false, false, false,
+                  true,  true,  true,
+                  false, false, false]
+    imu0_nodelay: true
+    imu0_differential: false
+    imu0_relative: true  # <--- Essential for Gazebo IMUs to reset to 0
+    imu0_queue_size: 10
+    imu0_remove_gravitational_acceleration: true

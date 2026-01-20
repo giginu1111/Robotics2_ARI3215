@@ -8,17 +8,11 @@ Panels:
         - /Status1
         - /RobotModel1
         - /LaserScan1
+        - /Brain (Markers)1
+        - /Mouse Internal Map1
         - /Image1
       Splitter Ratio: 0.5
     Tree Height: 557
-  - Class: rviz_common/Selection
-    Name: Selection
-  - Class: rviz_common/Tool Properties
-    Expanded:
-      - /2D Goal Pose1
-      - /Publish Point1
-    Name: Tool Properties
-    Splitter Ratio: 0.58
   - Class: rviz_common/Views
     Expanded:
       - /Current View1
@@ -42,6 +36,58 @@ Visualization Manager:
       Enabled: true
       Name: RobotModel
       Value: true
+    # --- VISUALIZATION MARKERS (Path & Frontiers) ---
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Brain (Markers)
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /visualization_marker_array
+      Value: true
+    # --- NEW: YOUR MOUSE'S INTERNAL MAP ---
+    - Alpha: 0.7
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Mouse Internal Map
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /mouse_map
+      Update Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /mouse_map_updates
+      Value: true
+    # --- SLAM MAP (Background Reference) ---
+    - Alpha: 0.3
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: SLAM Map (Reference)
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map
+      Update Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map_updates
+      Value: true
+    # ---------------------------------------
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 25; 0
@@ -51,7 +97,6 @@ Visualization Manager:
         Value: /scan
       Use Fixed Frame: true
       Value: true
-    # --- CHANGED: Used Image instead of Camera ---
     - Class: rviz_default_plugins/Image
       Enabled: true
       Max Value: 1
@@ -69,7 +114,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_link
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -80,7 +125,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.5
+      Distance: 10.0
       Focal Point:
         X: 0
         Y: 0

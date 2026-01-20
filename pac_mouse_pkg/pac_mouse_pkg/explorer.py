@@ -5,66 +5,55 @@ from sensor_msgs.msg import LaserScan, Image
 import cv2
 from cv_bridge import CvBridge
 import numpy as np
-import time
 
 class SmartMouse(Node):
     def __init__(self):
         super().__init__('smart_mouse')
-        
-        # --- PUBLISHERS & SUBSCRIBERS ---
         self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
         self.scan_sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
         self.cam_sub = self.create_subscription(Image, '/camera/image_raw', self.camera_callback, 10)
         
-        # --- TOOLS ---
         self.bridge = CvBridge()
         self.timer = self.create_timer(0.1, self.control_loop) 
 
-        # --- STATE MACHINE VARIABLES ---
-        self.state = "SEARCH" 
-        self.avoid_start_time = 0
+        # State Variables
         self.cheese_visible = False
         self.cheese_error = 0 
         
-        # --- SENSOR DATA ---
-        self.front_dist = 10.0
-        self.left_dist = 10.0
-        self.right_dist = 10.0
+        # Sensor Data (Initialized to 'inf' equivalent)
+        self.front = 10.0
+        self.right = 10.0
+        self.front_right = 10.0
 
-        print("🐭 Squeak Squeak! Smart Mouse Initialized!")
+        print("🐭 Wall-Following Mouse Initialized!")
 
     def scan_callback(self, msg):
         ranges = msg.ranges
         size = len(ranges)
         
-        def clean_data(r):
-            if r == float('inf'): return 10.0
-            if r == 0.0: return 10.0
-            return r
+        def get_range(index):
+            if 0 <= index < size:
+                r = ranges[index]
+                if r == float('inf') or r == 0.0: return 10.0
+                return r
+            return 10.0
 
-        # Front is Index 180 (Middle)
-        mid_point = size // 2 
-        front_indices = [mid_point-2, mid_point-1, mid_point, mid_point+1, mid_point+2]
-        
-        valid_front = []
-        for i in front_indices:
-            if 0 <= i < size:
-                valid_front.append(clean_data(ranges[i]))
-        
-        if valid_front:
-            self.front_dist = sum(valid_front) / len(valid_front)
-        else:
-            self.front_dist = 10.0
-        
-        self.left_dist = clean_data(ranges[int(size * 0.75)]) 
-        self.right_dist = clean_data(ranges[int(size * 0.25)])
+        # Lidar Configuration (Index 180 is Front)
+        idx_front = size // 2
+        idx_right = int(size * 0.25)       # -90 degrees
+        idx_front_right = int(size * 0.35) # -45 degrees (Diag)
+
+        # Average a few points for stability
+        self.front = min([get_range(i) for i in range(idx_front-5, idx_front+5)])
+        self.right = min([get_range(i) for i in range(idx_right-5, idx_right+5)])
+        self.front_right = min([get_range(i) for i in range(idx_front_right-5, idx_front_right+5)])
 
     def camera_callback(self, msg):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
             
-            # Yellow Cheese Thresholds
+            # Yellow Cheese
             lower_yellow = np.array([20, 100, 100])
             upper_yellow = np.array([40, 255, 255])
             
@@ -81,7 +70,6 @@ class SmartMouse(Node):
                         self.cheese_error = cx - (width / 2)
                         self.cheese_visible = True
                         return
-
             self.cheese_visible = False
         except Exception:
             pass
@@ -89,42 +77,47 @@ class SmartMouse(Node):
     def control_loop(self):
         cmd = Twist()
         
-        # --- LOGIC UPDATE: PRIORITY SWAP ---
-        
-        # PRIORITY 1: CHEESE (THE WIN CONDITION)
-        # If we see cheese, we IGNORE the walls (until we literally touch it)
+        # --- PRIORITY 1: CHEESE HUNT ---
         if self.cheese_visible:
-            self.state = "HUNT_CHEESE"
-            
-            # Stop if we are literally touching it (0.2m) so we don't burn the motors
-            if self.front_dist < 0.2:
-                print("🧀 YUM! Eating Cheese. (Stopped)")
+            if self.front < 0.2:
+                print("🧀 EATING CHEESE!")
                 cmd.linear.x = 0.0
                 cmd.angular.z = 0.0
             else:
-                print(f"🧀 TARGET ACQUIRED! Closing in... (Dist: {self.front_dist:.2f})")
+                print("🧀 CHARGING!")
                 cmd.linear.x = 0.3 
                 cmd.angular.z = -0.005 * self.cheese_error 
+            self.publisher_.publish(cmd)
+            return
 
-        # PRIORITY 2: CONTINUE AVOIDING (If we were already turning and NO cheese)
-        elif self.state == "AVOID_OBSTACLE":
-            if time.time() - self.avoid_start_time < 1.0: 
-                cmd.linear.x = -0.1 
-                cmd.angular.z = 0.8 
-            else:
-                self.state = "SEARCH"
-
-        # PRIORITY 3: DETECT WALL (Only if NO cheese is seen)
-        elif self.front_dist < 0.6: 
-            print(f"Wall at {self.front_dist:.2f}m! Avoiding...")
-            self.state = "AVOID_OBSTACLE"
-            self.avoid_start_time = time.time()
+        # --- PRIORITY 2: WALL FOLLOWING (Right Hand Rule) ---
+        # Logic adapted for "Front=180" lidar
+        
+        safe_dist = 0.4
+        
+        # Case A: Wall directly in front? -> Turn Left hard
+        if self.front < safe_dist:
+            print("Turn Left (Front Blocked)")
+            cmd.linear.x = 0.0
+            cmd.angular.z = 0.8
             
-        # PRIORITY 4: SEARCH
-        else:
-            self.state = "SEARCH"
-            cmd.linear.x = 0.4
+        # Case B: Too close to right wall? -> Nudge Left
+        elif self.right < 0.2:
+            print("Nudge Left (Too Close)")
+            cmd.linear.x = 0.2
+            cmd.angular.z = 0.3 # Turn away from wall
+
+        # Case C: Good distance from right wall? -> Go Straight
+        elif self.right < 0.5:
+            print("Follow Wall")
+            cmd.linear.x = 0.3
             cmd.angular.z = 0.0
+
+        # Case D: Wall lost/Too far? -> Curve Right to find it
+        else:
+            print("Find Wall (Curve Right)")
+            cmd.linear.x = 0.2
+            cmd.angular.z = -0.4 # Curve right
 
         self.publisher_.publish(cmd)
 
