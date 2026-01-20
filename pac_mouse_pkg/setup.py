@@ -44,6 +44,11 @@ setup(
             'explorer = pac_mouse_pkg.explorer:main',
             'smart_mouse = pac_mouse_pkg.smart_mouse:main',
             'smart_mouse_hew = pac_mouse_pkg.smart_mouse_hew:main',
+            'smart_mouse_complete = pac_mouse_pkg.smart_mouse_complete:main',
+            'smart_mouse_final = pac_mouse_pkg.smart_mouse_final:main',  # NEW
+            'smart_cat = pac_mouse_pkg.smart_cat:main',
+            'cheese_manager = pac_mouse_pkg.cheese_manager:main',  # NEW
         ],
     },
+
 )
