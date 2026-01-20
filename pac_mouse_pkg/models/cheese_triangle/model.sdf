@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="cheese_triangle">
+    <static>false</static> <link name="link">
+      
+      <inertial>
+        <mass>0.1</mass> <inertia>
+          <ixx>0.0001</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0001</iyy>
+          <iyz>0</iyz>
+          <izz>0.0001</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <uri>model://cheese_triangle/meshes/cheesetriangle.obj</uri>
+            <scale>1 1 1</scale> </mesh>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://cheese_triangle/meshes/cheesetriangle.obj</uri>
+            <scale>1 1 1</scale> </mesh>
+        </geometry>
+        <material>
+          <ambient>1 0.8 0 1</ambient>
+          <diffuse>1 0.8 0 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+
+    </link>
+  </model>
+</sdf>
