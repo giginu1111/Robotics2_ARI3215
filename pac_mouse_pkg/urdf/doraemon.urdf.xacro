@@ -16,7 +16,6 @@
     <material name="dora_white"><color rgba="1 1 1 1"/></material>
     <material name="dora_red"><color rgba="0.9 0.1 0.1 1"/></material>
     <material name="dora_yellow"><color rgba="1 0.8 0.1 1"/></material>
-    
     <material name="black"><color rgba="0 0 0 1"/></material>
     <material name="silver"><color rgba="0.75 0.75 0.75 1"/></material>
 
@@ -283,7 +282,7 @@
             <always_on>true</always_on>
             <visualize>true</visualize>
             <update_rate>40</update_rate>
-            <topic>scan</topic>
+            <topic>cat/scan</topic>
             <ray>
                 <scan>
                     <horizontal>
@@ -334,7 +333,7 @@
             <always_on>1</always_on>
             <update_rate>30</update_rate>
             <visualize>true</visualize>
-            <topic>camera/image_raw</topic>
+            <topic>cat/camera/image_raw</topic>
         </sensor>
     </gazebo>
 
@@ -353,7 +352,7 @@
         <sensor name="imu" type="imu">
             <always_on>true</always_on>
             <update_rate>100</update_rate>
-            <topic>imu</topic>
+            <topic>cat/imu</topic>
         </sensor>
     </gazebo>
 
@@ -366,9 +365,12 @@
             <wheel_separation>0.26</wheel_separation>
             <wheel_radius>${wheel_radius}</wheel_radius>
             <odom_publish_frequency>50</odom_publish_frequency>
-            <topic>cmd_vel</topic>
-            <odom_topic>odom</odom_topic>
-            <frame_id>odom</frame_id>
+            
+            <topic>cat/cmd_vel</topic>
+            <odom_topic>cat/odom</odom_topic>
+            <frame_id>cat/odom</frame_id> 
+            <child_frame_id>base_link</child_frame_id>
+
         </plugin>
     </gazebo>
 
