@@ -14,7 +14,7 @@ def generate_launch_description():
     mouse_doc = xacro.process_file(mouse_xacro)
     mouse_desc = mouse_doc.toxml()
 
-    cat_xacro = os.path.join(pkg_share, 'urdf', 'cat.urdf.xacro')
+    cat_xacro = os.path.join(pkg_share, 'urdf', 'cat_fixed.urdf.xacro')
     cat_doc = xacro.process_file(cat_xacro)
     cat_desc = cat_doc.toxml()
 
@@ -30,7 +30,7 @@ def generate_launch_description():
         launch_arguments={'gz_args': f'-r {world_file}'}.items()
     )
 
-    # 2. SPAWN MOUSE (using -string argument to pass description directly)
+    # 2. SPAWN MOUSE (SAFE POSITION - away from cheese!)
     spawn_mouse = Node(
         package='ros_gz_sim',
         executable='create',
@@ -38,15 +38,15 @@ def generate_launch_description():
         arguments=[
             '-string', mouse_desc,
             '-name', 'mouse_robot',
-            '-x', '-4.5',
-            '-y', '-4.5',
-            '-z', '0.1',
+            '-x', '-3.5',
+            '-y', '-3.5',
+            '-z', '0.15',
             '-Y', '0.785'
         ],
         output='screen'
     )
 
-    # 3. SPAWN CAT (using -string argument to pass description directly)
+    # 3. SPAWN CAT (SAFE POSITION - away from cheese!)
     spawn_cat = Node(
         package='ros_gz_sim',
         executable='create',
@@ -54,15 +54,15 @@ def generate_launch_description():
         arguments=[
             '-string', cat_desc,
             '-name', 'cat_robot',
-            '-x', '4.5',
-            '-y', '4.5',
-            '-z', '0.1',
+            '-x', '3.5',
+            '-y', '3.5',
+            '-z', '0.15',
             '-Y', '-2.356'
         ],
         output='screen'
     )
 
-    # 4. BRIDGE FOR MOUSE
+    # 4. BRIDGE FOR MOUSE (FIXED camera topic!)
     bridge_mouse = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -71,14 +71,17 @@ def generate_launch_description():
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
             '/mouse/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
             '/mouse/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/mouse/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/mouse/camera@sensor_msgs/msg/Image[gz.msgs.Image',
             '/mouse/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/mouse/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+        ],
+        remappings=[
+            ('/mouse/camera', '/mouse/camera/image_raw'),
         ],
         output='screen'
     )
 
-    # 5. BRIDGE FOR CAT
+    # 5. BRIDGE FOR CAT (FIXED camera topic!)
     bridge_cat = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -86,9 +89,12 @@ def generate_launch_description():
         arguments=[
             '/cat/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
             '/cat/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/cat/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/cat/camera@sensor_msgs/msg/Image[gz.msgs.Image',
             '/cat/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/cat/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+        ],
+        remappings=[
+            ('/cat/camera', '/cat/camera/image_raw'),
         ],
         output='screen'
     )
@@ -101,7 +107,8 @@ def generate_launch_description():
         namespace='mouse',
         parameters=[{
             'robot_description': mouse_desc,
-            'use_sim_time': True
+            'use_sim_time': True,
+            'frame_prefix': 'mouse/'
         }]
     )
 
@@ -112,7 +119,8 @@ def generate_launch_description():
         namespace='cat',
         parameters=[{
             'robot_description': cat_desc,
-            'use_sim_time': True
+            'use_sim_time': True,
+            'frame_prefix': 'cat/'
         }]
     )
 
@@ -143,25 +151,26 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
-    # 10. RVIZ
+    # 10. RVIZ (OPTIONAL - can be started manually if needed)
     rviz = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
         arguments=['-d', rviz_config],
-        parameters=[{'use_sim_time': True}]
+        # parameters=[{'use_sim_time': True}],
+        # Disable RViz - start manually if needed  # Disabled by default
     )
 
-    # DELAYED NODES (spawn robots immediately, others after delay)
+    # DELAYED NODES
     delayed_nodes = TimerAction(
-        period=3.0,
+        period=5.0,
         actions=[
+            rviz,
             mouse_state_pub,
             cat_state_pub,
             cheese_manager,
             smart_mouse,
-            smart_cat,
-            rviz
+            smart_cat
         ]
     )
 

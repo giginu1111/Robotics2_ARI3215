@@ -1,24 +1,19 @@
 Panels:
   - Class: rviz_common/Displays
-    Help Height: 78
     Name: Displays
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Mouse1
-        - /Cat1
       Splitter Ratio: 0.5
     Tree Height: 557
   - Class: rviz_common/Views
-    Expanded:
-      - /Current View1
     Name: Views
     Splitter Ratio: 0.5
 
 Visualization Manager:
   Class: ""
   Displays:
-    # ============ GLOBAL ============
+    # GRID
     - Alpha: 0.5
       Cell Size: 1
       Class: rviz_default_plugins/Grid
@@ -27,116 +22,64 @@ Visualization Manager:
       Name: Grid
       Value: true
 
-    # ============ MOUSE GROUP ============
-    - Class: rviz_common/Group
-      Displays:
-        - Alpha: 1
-          Class: rviz_default_plugins/RobotModel
-          Description Topic:
-            Depth: 5
-            Durability Policy: Transient Local
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /mouse/robot_description
-          Enabled: true
-          Name: Mouse Robot
-          Value: true
-
-        - Alpha: 1
-          Class: rviz_default_plugins/LaserScan
-          Color: 0; 255; 0
-          Color Transformer: FlatColor
-          Enabled: true
-          Name: Mouse LiDAR
-          Size (m): 0.05
-          Style: Points
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /mouse/scan
-          Use Fixed Frame: true
-          Value: true
-
-        - Class: rviz_default_plugins/Image
-          Enabled: true
-          Max Value: 1
-          Median window: 5
-          Min Value: 0
-          Name: Mouse Camera
-          Normalize Range: true
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /mouse/camera/image_raw
-          Value: true
-
+    # MOUSE LIDAR
+    - Alpha: 1
+      Class: rviz_default_plugins/LaserScan
+      Color: 0; 255; 0
+      Color Transformer: FlatColor
       Enabled: true
-      Name: Mouse
+      Name: Mouse LiDAR
+      Size (m): 0.05
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /mouse/scan
+      Use Fixed Frame: true
+      Value: true
 
-    # ============ CAT GROUP ============
-    - Class: rviz_common/Group
-      Displays:
-        - Alpha: 1
-          Class: rviz_default_plugins/RobotModel
-          Description Topic:
-            Depth: 5
-            Durability Policy: Transient Local
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /cat/robot_description
-          Enabled: true
-          Name: Cat Robot
-          Value: true
-
-        - Alpha: 1
-          Class: rviz_default_plugins/LaserScan
-          Color: 255; 0; 0
-          Color Transformer: FlatColor
-          Enabled: true
-          Name: Cat LiDAR
-          Size (m): 0.05
-          Style: Points
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /cat/scan
-          Use Fixed Frame: true
-          Value: true
-
-        - Class: rviz_default_plugins/Image
-          Enabled: false
-          Max Value: 1
-          Median window: 5
-          Min Value: 0
-          Name: Cat Camera
-          Normalize Range: true
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /cat/camera/image_raw
-          Value: false
-
+    # CAT LIDAR
+    - Alpha: 1
+      Class: rviz_default_plugins/LaserScan
+      Color: 255; 0; 0
+      Color Transformer: FlatColor
       Enabled: true
-      Name: Cat
+      Name: Cat LiDAR
+      Size (m): 0.05
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /cat/scan
+      Use Fixed Frame: true
+      Value: true
+
+    # MOUSE CAMERA
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Mouse Camera
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /mouse/camera/image_raw
+      Value: true
 
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: odom
+    Fixed Frame: mouse_robot/odom
     Frame Rate: 30
   Name: root
   Tools:
-    - Class: rviz_default_plugins/Interact
     - Class: rviz_default_plugins/MoveCamera
-    - Class: rviz_default_plugins/Select
   Value: true
   Views:
     Current:
@@ -151,4 +94,12 @@ Visualization Manager:
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
       Yaw: 0.785
-    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 846
+  Mouse Camera:
+    collapsed: false
+  Width: 1200
+  X: 100
+  Y: 100
