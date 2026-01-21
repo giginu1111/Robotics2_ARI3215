@@ -59,6 +59,7 @@ setup(
             'teleop = pac_mouse_pkg.teleop:main',
             'mouse_brain = pac_mouse_pkg.mouse_brain:main',
             'game_master = pac_mouse_pkg.game_master:main'
+            'mouse_navigator = pac_mouse_pkg.mouse_navigator:main',
         ],
     },
 )

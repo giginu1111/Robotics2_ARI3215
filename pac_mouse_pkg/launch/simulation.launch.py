@@ -148,6 +148,18 @@ def generate_launch_description():
             'use_sim_time': 'true'
         }.items()
     )
+    # 10. NAVIGATION 2 ( The "Smart" Driver )
+    # We use the default launch but tell it NOT to run AMCL (localization) or a Map Server
+    # because SLAM Toolbox is already doing that.
+    nav2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('nav2_bringup'), 'launch', 'navigation_launch.py')
+        ),
+        launch_arguments={
+            'use_sim_time': 'true',
+            'params_file': os.path.join(pkg_share, 'config', 'nav2_params.yaml'), # We will create this next
+        }.items()
+    )
 
     # ========================================================================
     # 8. VISUALIZATION (RVIZ)
