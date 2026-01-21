@@ -32,8 +32,8 @@ controller_server:
     # Goal Checker: Decides when we are "close enough"
     goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.25
+      xy_goal_tolerance: 0.50
+      yaw_goal_tolerance: 0.50
       stateful: True
 
     # --- FAST MOUSE CONTROLLER (Regulated Pure Pursuit) ---
@@ -190,10 +190,10 @@ velocity_smoother:
     feedback: "OPEN_LOOP"
     
     # LOOSE BRAKES (Allows high speed and fast turns)
-    max_velocity: [0.8, 0.0, 2.5] 
-    min_velocity: [-0.8, 0.0, -2.5]
-    max_accel: [2.5, 0.0, 3.2]
-    max_decel: [-2.5, 0.0, -3.2]
+    max_velocity: [0.8, 0.0, 10.0] 
+    min_velocity: [-0.8, 0.0, -10.0]
+    max_accel: [2.5, 0.0, 6.0]
+    max_decel: [-2.5, 0.0, -6.0]
     
     odom_topic: "mouse/odom"
     robot_frame: "mouse/base_link"
