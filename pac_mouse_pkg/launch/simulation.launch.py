@@ -223,7 +223,6 @@ def generate_launch_description():
             # --- CAT NODES ---
             node_cat_state_publisher,
             node_cat_joint_state_publisher,
-            node_cat_tf_lidar,
             node_cat_tf_camera,
 
             # --- RVIZ ---
