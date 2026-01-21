@@ -221,9 +221,10 @@ def generate_launch_description():
             rviz,
             fix_mouse_lidar,
             fix_cat_lidar,
-            toolbox_launch,
-            tf_map_mouse,
-            tf_map_cat
+            toolbox_launch
+            #,
+            #tf_map_mouse,
+            #tf_map_cat
         ]
     )
 

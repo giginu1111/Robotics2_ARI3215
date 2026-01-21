@@ -2,7 +2,7 @@ slam_toolbox:
   ros__parameters:
     # 1. CORE ROS FRAMES (UPDATED FOR NAMESPACE)
     odom_frame: mouse/odom
-    map_frame: mouse/map
+    map_frame: map
     base_frame: mouse/base_link
     scan_topic: /mouse/scan
     mode: mapping 
