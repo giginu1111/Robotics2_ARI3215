@@ -40,7 +40,7 @@ controller_server:
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: 0.8       # FASTER (0.8 m/s)
-      lookahead_dist: 0.6
+      lookahead_dist: 0.4
       min_lookahead_dist: 0.3
       rotate_to_heading_lp_gain: 0.5
       transform_tolerance: 0.1
@@ -50,7 +50,7 @@ controller_server:
       
       # Turning Logic: Snappy in-place turns
       use_rotate_to_heading: true
-      rotate_to_heading_min_angle: 0.5   
+      rotate_to_heading_min_angle: 0.3   
       rotate_to_heading_angular_vel: 5.0 # FAST ROTATION (1.8 rad/s)
       
       # Safety
