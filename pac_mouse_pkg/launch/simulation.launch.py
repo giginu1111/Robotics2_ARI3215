@@ -94,6 +94,7 @@ def generate_launch_description():
             '/model/mouse/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/model/mouse/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/model/mouse/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/model/mouse/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
 
             # --- CAT BRIDGE ---
             '/model/cat/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
@@ -102,6 +103,7 @@ def generate_launch_description():
             '/model/cat/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/model/cat/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/model/cat/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+            '/model/cat/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
         ],
         remappings=[
             # MOUSE REMAPS
@@ -111,6 +113,7 @@ def generate_launch_description():
             ('/model/mouse/tf', '/tf'), # Merge into global TF tree
             ('/model/mouse/imu', '/mouse/imu'),
             ('/model/mouse/camera/image_raw', '/mouse/camera/image_raw'),
+            ('/model/mouse/joint_states', '/mouse/joint_states'),
 
             # CAT REMAPS
             ('/model/cat/cmd_vel', '/cat/cmd_vel'),
@@ -119,6 +122,7 @@ def generate_launch_description():
             ('/model/cat/tf', '/tf'),   # Merge into global TF tree
             ('/model/cat/imu', '/cat/imu'),
             ('/model/cat/camera/image_raw', '/cat/camera/image_raw'),
+            ('/model/cat/joint_states', '/cat/joint_states'),
         ],
         output='screen'
     )
@@ -143,7 +147,7 @@ def generate_launch_description():
                 'world_frame': 'mouse/odom',
                 'odom0': '/mouse/odom',
                 'imu0': '/mouse/imu',
-                'publish_tf': True 
+                'publish_tf': False 
             }
         ]
     )

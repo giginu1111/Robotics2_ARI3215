@@ -246,6 +246,9 @@
     </gazebo>
 
     <gazebo>
+        <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+            <topic>/model/$(arg robot_name)/joint_states</topic>
+        </plugin>
         <plugin
             filename="gz-sim-diff-drive-system"
             name="gz::sim::systems::DiffDrive">
