@@ -31,7 +31,7 @@ def generate_launch_description():
     cat_xml = cat_doc.toxml()
 
     # 3. LAUNCH GAZEBO WORLD
-    world_file = os.path.join(pkg_share, 'worlds', 'maze.sdf') 
+    world_file = os.path.join(pkg_share, 'worlds', 'maze_v3.sdf') 
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')
