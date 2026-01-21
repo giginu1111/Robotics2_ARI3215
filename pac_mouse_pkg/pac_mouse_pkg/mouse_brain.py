@@ -21,7 +21,7 @@ class MouseBrain(Node):
         # List of Cheese Locations (x, y, name)
         # You must update these coordinates to match where you put them in Gazebo!
         self.cheeses = [
-            {'x': 5.5, 'y': 5.5, 'name': 'cheese_0'}
+            {'x': 5.5, 'y': 5.5, 'name': 'cheese_1'}
         ]
         
         self.mouse_pose = None
