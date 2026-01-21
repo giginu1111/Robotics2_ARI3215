@@ -49,7 +49,7 @@ class MouseBrain(Node):
         # This command sends a request to Gazebo to remove the model
         # NOTE: Verify your world name! (Default is usually 'default' or 'world_demo')
         # You can check world name by running: gz service -l | grep world
-        world_name = "default" 
+        world_name = "pac_mouse_maze" 
         
         cmd = [
             "gz", "service", "-s", f"/world/{world_name}/remove",
