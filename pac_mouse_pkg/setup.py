@@ -27,6 +27,8 @@ setup(
 
         # 5. Install Config Files (ADD THIS LINE HERE!)
         (os.path.join('share', package_name, 'config'), glob('config/*')),
+        # 6. Install Model Files
+        (os.path.join('share', package_name, 'models'), glob('models/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
