@@ -60,16 +60,23 @@ class SmartMouse(Node):
         self._get_result_future.add_done_callback(self.get_result_callback)
 
     def get_result_callback(self, future):
-        # We arrived!
-        self.get_logger().info('ARRIVED AT CHEESE!')
+        result = future.result().result
+        status = future.result().status
         
-        # Eat the cheese
-        target = self.cheese_list[self.current_cheese_index]
-        self.delete_cheese(target['name'])
-        
-        # Move to next
-        self.current_cheese_index += 1
-        self.send_next_goal()
+        # STATUS_SUCCEEDED is 4 in ROS 2 action definitions
+        if status == 4:
+            self.get_logger().info('ARRIVED AT CHEESE!')
+            
+            # Eat the cheese
+            target = self.cheese_list[self.current_cheese_index]
+            self.delete_cheese(target['name'])
+            
+            # Move to next
+            self.current_cheese_index += 1
+            self.send_next_goal()
+        else:
+            self.get_logger().info('Failed to reach the goal for some reason.')
+            self.send_next_goal()
 
     def delete_cheese(self, cheese_name):
         # NOTE: Verify your world name!
