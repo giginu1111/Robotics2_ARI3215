@@ -370,6 +370,7 @@
         <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
             <topic>/model/$(arg robot_name)/joint_states</topic>
         </plugin>
+
         <plugin
             filename="gz-sim-diff-drive-system"
             name="gz::sim::systems::DiffDrive">
@@ -377,14 +378,25 @@
             <right_joint>$(arg robot_name)/right_wheel_joint</right_joint>
             <wheel_separation>0.26</wheel_separation>
             <wheel_radius>${wheel_radius}</wheel_radius>
-            <odom_publish_frequency>50</odom_publish_frequency>
             
             <topic>/model/$(arg robot_name)/cmd_vel</topic>
-            <odom_topic>/model/$(arg robot_name)/odometry</odom_topic>
-            <tf_topic>/model/$(arg robot_name)/tf</tf_topic>
-
+            
+            <odom_topic>/model/$(arg robot_name)/odom_noisy_ignore</odom_topic>
+            <tf_topic>/model/$(arg robot_name)/tf_noisy_ignore</tf_topic>
+            
             <frame_id>$(arg robot_name)/odom</frame_id> 
             <child_frame_id>$(arg robot_name)/base_link</child_frame_id>
+        </plugin>
+
+        <plugin
+            filename="gz-sim-odometry-publisher-system"
+            name="gz::sim::systems::OdometryPublisher">
+            <dimensions>3</dimensions> <topic>/model/$(arg robot_name)/odometry</topic>
+            <tf_topic>/model/$(arg robot_name)/tf</tf_topic>
+            
+            <odom_frame>$(arg robot_name)/odom</odom_frame>
+            <robot_base_frame>$(arg robot_name)/base_link</robot_base_frame>
+            <odom_publish_frequency>50</odom_publish_frequency>
         </plugin>
     </gazebo>
 
