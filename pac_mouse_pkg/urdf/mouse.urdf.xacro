@@ -262,7 +262,7 @@
             <odom_topic>/model/$(arg robot_name)/odometry</odom_topic>
             <tf_topic>/model/$(arg robot_name)/tf</tf_topic>
             
-            <frame_id>odom</frame_id>
+            <frame_id>$(arg robot_name)/odom</frame_id>
             <child_frame_id>$(arg robot_name)/base_link</child_frame_id>
         </plugin>
     </gazebo>
