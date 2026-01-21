@@ -3,22 +3,9 @@ Panels:
     Help Height: 78
     Name: Displays
     Property Tree Widget:
-      Expanded:
-        - /Global Options1
-        - /Status1
-        - /Mouse Model1
-        - /Cat Model1
-        - /Mouse Laser1
-        - /Cat Laser1
-        - /Mouse Image1
-        - /Cat Image1
+      Expanded: [] # <--- CLEARED: All items will be collapsed by default
       Splitter Ratio: 0.5
     Tree Height: 557
-  - Class: rviz_common/Views
-    Expanded:
-      - /Current View1
-    Name: Views
-    Splitter Ratio: 0.5
 Visualization Manager:
   Class: ""
   Displays:
@@ -29,13 +16,13 @@ Visualization Manager:
       Enabled: true
       Name: Grid
       Value: true
-      
+
     # --- MOUSE ROBOT MODEL ---
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Description Topic:
         Durability Policy: Transient Local
-        Value: /mouse/robot_description   # CORRECT: Points to mouse namespace
+        Value: /mouse/robot_description
       Enabled: true
       Name: Mouse Model
       Value: true
@@ -45,19 +32,9 @@ Visualization Manager:
       Class: rviz_default_plugins/RobotModel
       Description Topic:
         Durability Policy: Transient Local
-        Value: /cat/robot_description     # CORRECT: Points to cat namespace
+        Value: /cat/robot_description
       Enabled: true
       Name: Cat Model
-      Value: true
-
-    # --- TF FRAMES (Added for debugging) ---
-    - Class: rviz_default_plugins/TF
-      Enabled: true
-      Name: TF
-      Marker Scale: 0.3
-      Show Arrows: true
-      Show Axes: true
-      Show Names: false
       Value: true
 
     # --- SLAM MAP ---
@@ -85,6 +62,7 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 25; 0
+      Color Transformer: FlatColor # <--- KEEPS IT RED
       Name: Mouse Laser
       Size (m): 0.05
       Topic:
@@ -92,7 +70,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /mouse/scan             # <--- UPDATED: Was /scan
+        Value: /mouse/scan
       Use Fixed Frame: true
       Value: true
 
@@ -100,13 +78,14 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 0; 255; 255
+      Color Transformer: FlatColor # <--- KEEPS IT CYAN
       Name: Cat Laser
       Size (m): 0.05
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
-        Reliability Policy: Best Effort  # Essential for Gazebo bridge
+        Reliability Policy: Best Effort
         Value: /cat/scan
       Use Fixed Frame: true
       Value: true
@@ -124,7 +103,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /mouse/camera/image_raw  # <--- UPDATED: Was /camera/image_raw
+        Value: /mouse/camera/image_raw
       Value: true
 
     # --- CAT CAMERA ---
@@ -146,9 +125,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    # UPDATED: 'odom' implies global, but we are namespaced. 
-    # Use 'mouse/odom' (EKF output) or 'map' (SLAM output).
-    Fixed Frame: mouse/odom   
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
