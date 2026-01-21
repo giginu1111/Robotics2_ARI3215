@@ -4,11 +4,7 @@ from glob import glob
 
 package_name = 'pac_mouse_pkg'
 
-setup(
-    name=package_name,
-    version='0.0.0',
-    packages=find_packages(exclude=['test']),
-    data_files=[
+data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
@@ -27,9 +23,22 @@ setup(
 
         # 5. Install Config Files (ADD THIS LINE HERE!)
         (os.path.join('share', package_name, 'config'), glob('config/*')),
-        # 6. Install Model Files
-        (os.path.join('share', package_name, 'models'), glob('models/*')),
     ],
+
+for root, dirs, files in os.walk('models'):
+    if files:
+        # Where to put it in the install folder
+        install_dir = os.path.join('share', package_name, root)
+        # Where it is now
+        source_files = [os.path.join(root, f) for f in files]
+        # Add to the list
+        data_files.append((install_dir, source_files))
+
+setup(
+    name=package_name,
+    version='0.0.0',
+    packages=find_packages(exclude=['test']),
+    
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='giginu',
