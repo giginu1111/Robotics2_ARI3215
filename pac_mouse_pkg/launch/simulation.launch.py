@@ -44,12 +44,12 @@ def generate_launch_description():
         package='ros_gz_sim',
         executable='create',
         arguments=[
-            '-topic', '/robot_description', 
+            '-string', mouse_desc_xml,
             '-name', 'squeak_mouse', 
-            '-x', '-3.0',  # Move back 3 meters
-            '-y', '-3.0',  # Move left 3 meters (Safe corner)
-            '-z', '0.1',   # Lift up slightly
-            '-Y', '0.0'    # Face East (0.0 radians)
+            '-x', '-3.0',
+            '-y', '-3.0',
+            '-z', '0.1',
+            '-Y', '0.0'
         ],
         output='screen'
     )
