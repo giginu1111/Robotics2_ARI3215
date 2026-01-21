@@ -2,21 +2,18 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-from sensor_msgs.msg import LaserScan  # NEW: We need to see!
+from sensor_msgs.msg import LaserScan
 from transforms3d.euler import quat2euler
 import math
 
 class CatBrain(Node):
     def __init__(self):
-        super().__init__('cat_brain')
+        super().__init__('cat_brain_apf')
 
-        # 1. DATA INPUTS
+        # --- TOPICS ---
         self.sub_cat = self.create_subscription(Odometry, '/cat/odom', self.update_cat_pose, 10)
         self.sub_mouse = self.create_subscription(Odometry, '/mouse/odom', self.update_mouse_pose, 10)
-        
-        # NEW: Listen to Lidar
         self.sub_lidar = self.create_subscription(LaserScan, '/cat/scan', self.lidar_callback, 10)
-        # 2. MOTOR OUTPUT
         self.publisher_ = self.create_publisher(Twist, '/cat/cmd_vel', 10)
 
         # Variables
@@ -24,17 +21,20 @@ class CatBrain(Node):
         self.mouse_pose = None
         self.lidar_ranges = []
         
-        # Patrol Waypoints
-        self.waypoints = [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)]
-        self.current_wp_index = 0
+        # Lidar config (will be auto-detected)
+        self.angle_min = -3.14
+        self.angle_increment = 0.0087 # approx
         
-        # Brain Loop
-        self.timer = self.create_timer(0.1, self.control_loop)
-        self.get_logger().info("Safe Cat Brain Active!")
+        self.timer = self.create_timer(0.05, self.control_loop) # Faster loop (20Hz)
+        self.get_logger().info("Potential Field Brain Active!")
 
     def update_cat_pose(self, msg): self.cat_pose = msg.pose.pose
     def update_mouse_pose(self, msg): self.mouse_pose = msg.pose.pose
-    def lidar_callback(self, msg): self.lidar_ranges = msg.ranges
+    
+    def lidar_callback(self, msg): 
+        self.lidar_ranges = msg.ranges
+        self.angle_min = msg.angle_min
+        self.angle_increment = msg.angle_increment
 
     def get_yaw(self, pose):
         q = pose.orientation
@@ -45,67 +45,85 @@ class CatBrain(Node):
         if self.cat_pose is None or self.mouse_pose is None or not self.lidar_ranges:
             return
 
-        twist = Twist()
-        cx, cy = self.cat_pose.position.x, self.cat_pose.position.y
+        # 1. CAT POSITION
+        cx = self.cat_pose.position.x
+        cy = self.cat_pose.position.y
         cat_yaw = self.get_yaw(self.cat_pose)
 
-        # --- LAYER 1: OBSTACLE AVOIDANCE (High Priority) ---
-        # The Lidar array has 720 points. Index 360 is dead center front.
-        # We check a "wedge" in front of the cat (indices 300 to 420).
-        front_ranges = self.lidar_ranges[300:420]
+        # 2. ATTRACTION VECTOR (Pull towards Mouse)
+        mx = self.mouse_pose.position.x
+        my = self.mouse_pose.position.y
         
-        # Filter out "inf" (infinite) distances which mean "nothing seen"
-        valid_front = [r for r in front_ranges if r < 10.0] 
-        
-        wall_ahead = False
-        if len(valid_front) > 0:
-            min_dist = min(valid_front)
-            if min_dist < 0.6: # If wall is closer than 0.6 meters
-                wall_ahead = True
+        vec_x = mx - cx
+        vec_y = my - cy
+        dist_to_mouse = math.sqrt(vec_x**2 + vec_y**2)
 
-        if wall_ahead:
-            self.get_logger().warn("WALL DETECTED! Turning away!")
-            twist.linear.x = 0.0      # Stop forward
-            twist.angular.z = 1.0     # Spin left to find path
-            self.publisher_.publish(twist)
-            return  # SKIP the rest of the logic! Safety first!
-
-        # --- LAYER 2: CHASE / PATROL (Low Priority) ---
-        mx, my = self.mouse_pose.position.x, self.mouse_pose.position.y
-        dist_to_mouse = math.sqrt((mx - cx)**2 + (my - cy)**2)
-        
-        target_x, target_y = 0.0, 0.0
-        speed = 0.0
-
-        if dist_to_mouse < 3.0:
-            # CHASE MODE
-            target_x, target_y = mx, my
-            speed = 1.5
-            self.get_logger().info(f"Chasing! Dist: {dist_to_mouse:.2f}")
+        # Normalize and weigh attraction
+        # (We want the cat to want the mouse badly, so weight = 2.0)
+        if dist_to_mouse > 0:
+            attract_x = (vec_x / dist_to_mouse) * 2.0
+            attract_y = (vec_y / dist_to_mouse) * 2.0
         else:
-            # PATROL MODE
-            target_x, target_y = self.waypoints[self.current_wp_index]
-            dist_to_wp = math.sqrt((target_x - cx)**2 + (target_y - cy)**2)
-            speed = 0.5
-            if dist_to_wp < 0.5:
-                self.current_wp_index = (self.current_wp_index + 1) % len(self.waypoints)
+            attract_x, attract_y = 0.0, 0.0
 
-        # Drive Math
-        target_angle = math.atan2(target_y - cy, target_x - cx)
+        # 3. REPULSION VECTOR (Push away from Walls)
+        repulse_x = 0.0
+        repulse_y = 0.0
         
-        # Calculate Error
+        # Check all lidar rays
+        for i, r in enumerate(self.lidar_ranges):
+            # Only care about things closer than 1.0 meter
+            if r < 1.0 and r > 0.05:
+                # Calculate the angle of this specific ray relative to the robot
+                angle = self.angle_min + (i * self.angle_increment)
+                
+                # The "Force" is strong when close, weak when far (1/r^2)
+                force = 1.0 / (r * r)
+                
+                # The direction of the force is OPPOSITE to the obstacle
+                # Since 'angle' is where the obstacle is, 'angle + pi' is away
+                # We need to rotate this into the GLOBAL map frame
+                # Global Angle = Robot Yaw + Ray Angle + PI (180 deg)
+                push_angle = cat_yaw + angle + math.pi
+                
+                repulse_x += math.cos(push_angle) * force
+                repulse_y += math.sin(push_angle) * force
+
+        # Weight the repulsion (Make walls SCARY!)
+        # Increase this number (0.02) if the cat still hits walls
+        repulsion_strength = 0.02 
+        repulse_x *= repulsion_strength
+        repulse_y *= repulsion_strength
+
+        # 4. SUM OF FORCES
+        final_x = attract_x + repulse_x
+        final_y = attract_y + repulse_y
+
+        # 5. DRIVE ALONG THE RESULTANT VECTOR
+        target_angle = math.atan2(final_y, final_x)
+        
+        # Calculate steering error
         error_yaw = target_angle - cat_yaw
         while error_yaw > math.pi: error_yaw -= 2*math.pi
         while error_yaw < -math.pi: error_yaw += 2*math.pi
 
-        # Turn logic
-        twist.angular.z = 2.0 * error_yaw
+        twist = Twist()
         
-        # Only drive if facing target
-        if abs(error_yaw) < 0.5:
-            twist.linear.x = speed
+        # Turn logic
+        twist.angular.z = 2.5 * error_yaw
+        
+        # Drive logic (Slow down if turning sharply)
+        if abs(error_yaw) < 1.0:
+            # Base speed 1.0, but slow down if obstacles are pushing us
+            twist.linear.x = 1.0 / (1.0 + abs(twist.angular.z))
         else:
-            twist.linear.x = 0.0 # Stop to turn tightly
+            twist.linear.x = 0.0
+
+        # Stop if we caught the mouse
+        if dist_to_mouse < 0.5:
+            twist.linear.x = 0.0
+            twist.angular.z = 0.0
+            self.get_logger().info("GOTCHA!")
 
         self.publisher_.publish(twist)
 
