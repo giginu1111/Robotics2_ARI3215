@@ -81,8 +81,8 @@ local_costmap:
       # SHARP INFLATION (Prevents Ghost Walls)
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 10.0  # High factor = Danger zone drops off fast
-        inflation_radius: 0.2     # Small bubble
+        cost_scaling_factor: 15.0  # High factor = Danger zone drops off fast
+        inflation_radius: 0.15     # Small bubble
 
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
@@ -117,8 +117,8 @@ global_costmap:
       
       # ROLLING WINDOW FIX (Prevents "Out of Bounds" errors)
       rolling_window: true
-      width: 20     # INTEGER (Critical for preventing crashes)
-      height: 20    # INTEGER (Critical for preventing crashes)
+      width: 25     # INTEGER (Critical for preventing crashes)
+      height: 25    # INTEGER (Critical for preventing crashes)
       origin_x: -10.0
       origin_y: -10.0
       
@@ -144,7 +144,7 @@ global_costmap:
       # SHARP INFLATION (Prevents Ghost Walls)
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 2.5
+        cost_scaling_factor: 10
         inflation_radius: 0.5
 
 planner_server:
