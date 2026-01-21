@@ -201,6 +201,20 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
+    slam_toolbox = Node(
+        package='slam_toolbox',
+        executable='async_slam_toolbox_node',
+        name='slam_toolbox',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'base_frame': 'mouse/base_link',
+            'odom_frame': 'mouse/odom',
+            'map_frame': 'map',
+            'scan_topic': '/model/mouse/scan'
+        }]
+    )
+
     # 9. DELAYED ACTIONS
     # We delay the EKF and RVIZ slightly to ensure Gazebo is up and publishing /clock
     delayed_nodes = TimerAction(
@@ -211,7 +225,8 @@ def generate_launch_description():
             fix_mouse_lidar,
             fix_cat_lidar,
             tf_map_mouse,
-            tf_map_cat
+            tf_map_cat,
+            slam_toolbox
         ]
     )
 
