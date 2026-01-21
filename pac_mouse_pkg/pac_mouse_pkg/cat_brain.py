@@ -73,7 +73,7 @@ class CatBrain(Node):
         # Check all lidar rays
         for i, r in enumerate(self.lidar_ranges):
             # Only care about things closer than 1.0 meter
-            if r < 1.0 and r > 0.05:
+            if r < 0.4 and r > 0.05:
                 # Calculate the angle of this specific ray relative to the robot
                 angle = self.angle_min + (i * self.angle_increment)
                 
@@ -91,7 +91,7 @@ class CatBrain(Node):
 
         # Weight the repulsion (Make walls SCARY!)
         # Increase this number (0.02) if the cat still hits walls
-        repulsion_strength = 0.02 
+        repulsion_strength = 0.005 
         repulse_x *= repulsion_strength
         repulse_y *= repulsion_strength
 
