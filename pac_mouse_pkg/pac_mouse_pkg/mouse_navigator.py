@@ -18,7 +18,7 @@ class SmartMouse(Node):
 
         # 3. Define Cheese Locations (Ideally this comes from Vision, but hardcode for now)
         self.cheese_list = [
-            {'x': 2.0, 'y': 2.0, 'name': 'cheese_1'},
+            {'x': 3.5.0, 'y': 3.5, 'name': 'cheese_1'},
             {'x': -2.0, 'y': 2.0, 'name': 'cheese_2'},
             {'x': 5.5, 'y': 5.5, 'name': 'cheese_3'} 
         ]
