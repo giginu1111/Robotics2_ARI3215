@@ -72,25 +72,55 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
+            # --- GLOBAL ---
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+
+            # --- MOUSE TOPICS ---
             '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry', 
-            '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',        
+            '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+
+            # --- CAT TOPICS (NEW) ---
+            # Command Velocity (ROS -> Gazebo)
+            '/cat/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+            
+            # Sensors (Gazebo -> ROS)
+            '/cat/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/cat/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/cat/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+            '/cat/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
         ],
         output='screen'
     )
 
-    # 4. ROBOT STATE PUBLISHER
+    # 4. ROBOT STATE PUBLISHER (MOUSE)
     node_robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
+        name='mouse_state_publisher', # Rename for clarity
         output='screen',
         parameters=[{
             'robot_description': mouse_desc_xml,
             'use_sim_time': True 
-        }]
+        }],
+        # Remap to a namespace so RViz distinguishes them
+        namespace='mouse' 
+    )
+
+    # 4.5 ROBOT STATE PUBLISHER (CAT)
+    node_cat_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='cat_state_publisher',
+        output='screen',
+        parameters=[{
+            'robot_description': cat_desc_xml,
+            'use_sim_time': True,
+            'frame_prefix': 'doraemon/' # Optional: prefixes TF frames if needed
+        }],
+        namespace='cat'
     )
 
     # 5. JOINT STATE PUBLISHER
@@ -115,6 +145,41 @@ def generate_launch_description():
         executable='static_transform_publisher',
         name='tf_base_fix',
         arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'squeak_mouse/base_link'],
+        parameters=[{'use_sim_time': True}],
+        output='screen'
+    )
+
+    # 6.5 CAT INFRASTRUCTURE (Joints & TFs)
+    
+    # A. Joint State Publisher (Keeps the wheels attached to the body)
+    node_cat_joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='cat_joint_state_publisher',
+        namespace='cat', # Must match the namespace of the state publisher
+        parameters=[{'use_sim_time': True}]
+    )
+
+    # B. TF: Connect the Lidar Data to the Robot
+    # The Robot State Publisher creates "doraemon/lidar_link"
+    # The Gazebo Plugin outputs data in "lidar_link"
+    # This node connects them.
+    node_cat_tf_lidar = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='cat_tf_lidar_fix',
+        # Arguments: x y z qx qy qz qw parent_frame child_frame
+        arguments=['0', '0', '0', '0', '0', '0', '1', 'doraemon/lidar_link', 'lidar_link'],
+        parameters=[{'use_sim_time': True}],
+        output='screen'
+    )
+
+    # C. TF: Connect the Camera Data (Optional but good)
+    node_cat_tf_camera = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='cat_tf_camera_fix',
+        arguments=['0', '0', '0', '0', '0', '0', '1', 'doraemon/camera_link', 'camera_link_optical'],
         parameters=[{'use_sim_time': True}],
         output='screen'
     )
@@ -155,11 +220,20 @@ def generate_launch_description():
     delayed_nodes = TimerAction(
         period=5.0, 
         actions=[
+            # --- MOUSE NODES ---
             node_robot_state_publisher, 
             node_joint_state_publisher, 
             node_tf_lidar, 
             node_tf_base, 
-            node_ekf, 
+            node_ekf,
+
+            # --- CAT NODES ---
+            node_cat_state_publisher,
+            node_cat_joint_state_publisher,
+            node_cat_tf_lidar,
+            node_cat_tf_camera,
+
+            # --- RVIZ ---
             node_rviz
         ]
     )
