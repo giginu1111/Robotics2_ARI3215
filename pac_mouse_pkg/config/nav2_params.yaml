@@ -219,7 +219,15 @@ collision_monitor:
     PolygonStop:
       type: "polygon"
       # A small box around the mouse (approx 20cm x 20cm)
-      points: [0.1, 0.1, 0.1, -0.1, -0.1, -0.1, -0.1, 0.1]
+      points:
+        - 0.1
+        - 0.1
+        - 0.1
+        - -0.1
+        - -0.1
+        - -0.1
+        - -0.1
+        - 0.1
       action_type: "stop"
       min_points: 4
       visualize: True
