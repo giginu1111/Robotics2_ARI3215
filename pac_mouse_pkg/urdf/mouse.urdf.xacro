@@ -51,7 +51,16 @@
         <collision>
             <geometry><box size="${body_len} ${body_width} ${body_height}"/></geometry>
         </collision>
-        <xacro:box_inertia m="${body_mass}" x="${body_len}" y="${body_width}" z="${body_height}"/>
+        <inertial>
+            <mass value="2.0"/> 
+            
+            <origin xyz="0 0 -0.05" rpy="0 0 0"/> 
+            
+            <inertia 
+                ixx="${2.0*(body_width*body_width + body_height*body_height)/12}" ixy="0" ixz="0"
+                iyy="${2.0*(body_len*body_len + body_height*body_height)/12}" iyz="0"
+                izz="${2.0*(body_len*body_len + body_width*body_width)/12}"/>
+        </inertial>
     </link>
     
     <gazebo reference="$(arg robot_name)/base_link">
