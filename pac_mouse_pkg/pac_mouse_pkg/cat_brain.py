@@ -11,14 +11,13 @@ class CatBrain(Node):
         super().__init__('cat_brain')
 
         # 1. DATA INPUTS
-        self.sub_cat = self.create_subscription(Odometry, '/model/cat/odometry', self.update_cat_pose, 10)
-        self.sub_mouse = self.create_subscription(Odometry, '/model/mouse/odometry', self.update_mouse_pose, 10)
+        self.sub_cat = self.create_subscription(Odometry, '/cat/odom', self.update_cat_pose, 10)
+        self.sub_mouse = self.create_subscription(Odometry, '/mouse/odom', self.update_mouse_pose, 10)
         
         # NEW: Listen to Lidar
-        self.sub_lidar = self.create_subscription(LaserScan, '/model/cat/scan', self.lidar_callback, 10)
-
+        self.sub_lidar = self.create_subscription(LaserScan, '/cat/scan', self.lidar_callback, 10)
         # 2. MOTOR OUTPUT
-        self.publisher_ = self.create_publisher(Twist, '/model/cat/cmd_vel', 10)
+        self.publisher_ = self.create_publisher(Twist, '/cat/cmd_vel', 10)
 
         # Variables
         self.cat_pose = None
