@@ -6,7 +6,7 @@
     <xacro:property name="body_len" value="0.15"/>
     <xacro:property name="body_width" value="0.10"/>
     <xacro:property name="body_height" value="0.06"/>
-    <xacro:property name="body_mass" value="0.5"/>
+    <xacro:property name="body_mass" value="2"/>
 
     <xacro:property name="wheel_radius" value="0.035"/>
     <xacro:property name="wheel_width" value="0.01"/>
@@ -18,10 +18,10 @@
 
     <xacro:macro name="box_inertia" params="m x y z">
         <inertial>
-            <mass value="${m}"/>
-            <inertia ixx="${m*(y*y+z*z)/12}" ixy="0" ixz="0"
-                     iyy="${m*(x*x+z*z)/12}" iyz="0"
-                     izz="${m*(x*x+y*y)/12}"/>
+        <mass value="${m}"/>
+            <origin xyz="0 0 ${o_z}" rpy="0 0 0"/> <inertia ixx="${m*(y*y+z*z)/12}" ixy="0" ixz="0"
+                    iyy="${m*(x*x+z*z)/12}" iyz="0"
+                    izz="${m*(x*x+y*y)/12}"/>
         </inertial>
     </xacro:macro>
 
@@ -51,7 +51,7 @@
         <collision>
             <geometry><box size="${body_len} ${body_width} ${body_height}"/></geometry>
         </collision>
-        <xacro:box_inertia m="${body_mass}" x="${body_len}" y="${body_width}" z="${body_height}"/>
+        <xacro:box_inertia m="${body_mass}" x="${body_len}" y="${body_width}" z="${body_height}" o_z="-0.05"/>
     </link>
     
     <gazebo reference="$(arg robot_name)/base_link">
@@ -275,7 +275,7 @@
             <topic>/model/$(arg robot_name)/odometry</topic>
             <tf_topic>/model/$(arg robot_name)/tf</tf_topic>
             
-            <odom_frame>map</odom_frame>
+            <odom_frame>$(arg robot_name)/odom</odom_frame>
             
             <robot_base_frame>$(arg robot_name)/base_link</robot_base_frame>
             <odom_publish_frequency>50</odom_publish_frequency>
