@@ -12,6 +12,8 @@ def generate_launch_description():
     # 1. SETUP & PATHS
     # ========================================================================
     pkg_share = get_package_share_directory('pac_mouse_pkg')
+    nav2_share = get_package_share_directory('nav2_bringup')
+    slam_toolbox_share = get_package_share_directory('slam_toolbox')
     
     # Ensure Gazebo can find models/meshes
     set_model_path = AppendEnvironmentVariable(
@@ -141,7 +143,7 @@ def generate_launch_description():
     # SLAM Toolbox (Mapping)
     slam_toolbox = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('slam_toolbox'), 'launch', 'online_async_launch.py')
+            os.path.join(slam_toolbox_share, 'launch', 'online_async_launch.py')
         ),
         launch_arguments={
             'slam_params_file': slam_config,
@@ -151,13 +153,13 @@ def generate_launch_description():
     # 10. NAVIGATION 2 ( The "Smart" Driver )
     # We use the default launch but tell it NOT to run AMCL (localization) or a Map Server
     # because SLAM Toolbox is already doing that.
+    nav2_params = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
     nav2_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('nav2_bringup'), 'launch', 'navigation_launch.py')
-        ),
+        PythonLaunchDescriptionSource(os.path.join(nav2_share, 'launch', 'navigation_launch.py')),
         launch_arguments={
             'use_sim_time': 'true',
-            'params_file': os.path.join(pkg_share, 'config', 'nav2_params.yaml'), # We will create this next
+            'params_file': nav2_params,
+            'autostart': 'true'  # IMPORTANT: Automatically start the nodes
         }.items()
     )
 
