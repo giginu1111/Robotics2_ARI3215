@@ -201,18 +201,15 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
-    slam_toolbox = Node(
-        package='slam_toolbox',
-        executable='async_slam_toolbox_node',
-        name='slam_toolbox',
-        output='screen',
-        parameters=[{
-            'use_sim_time': True,
-            'base_frame': 'mouse/base_link',
-            'odom_frame': 'mouse/odom',
-            'map_frame': 'map',
-            'scan_topic': '/mouse/scan'
-        }]
+    slam_config_file = os.path.join(pkg_share, 'config', 'slam_params.yaml')
+    toolbox_launch = IncludeLaunchDescription(
+    PythonLaunchDescriptionSource(
+        os.path.join(get_package_share_directory('slam_toolbox'), 'launch', 'online_async_launch.py')
+    ),
+    launch_arguments={
+        'slam_params_file': slam_config_file,
+        'use_sim_time': 'true'
+    }.items()
     )
 
     # 9. DELAYED ACTIONS
@@ -224,7 +221,7 @@ def generate_launch_description():
             rviz,
             fix_mouse_lidar,
             fix_cat_lidar,
-            slam_toolbox,
+            slam_config_file,
             tf_map_mouse,
             tf_map_cat
         ]

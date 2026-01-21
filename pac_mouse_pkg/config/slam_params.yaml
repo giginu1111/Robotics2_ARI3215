@@ -1,10 +1,10 @@
 slam_toolbox:
   ros__parameters:
     # 1. CORE ROS FRAMES (UPDATED FOR NAMESPACE)
-    odom_frame: mouse/odom          # <--- Was 'odom'
-    map_frame: map                  # Keep 'map' so it generates the global map
-    base_frame: mouse/base_link     # <--- Was 'base_link'
-    scan_topic: /mouse/scan         # <--- Was '/scan'
+    odom_frame: mouse/odom
+    map_frame: mouse/map
+    base_frame: mouse/base_link
+    scan_topic: /mouse/scan
     mode: mapping 
 
     # 2. SOLVER (The Math)
