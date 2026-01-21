@@ -246,7 +246,10 @@
         <child link="$(arg robot_name)/front_caster"/>
         <origin xyz="0 0 -0.04" rpy="0 0 0"/>
     </joint>
-    <gazebo reference="$(arg robot_name)/front_caster"><material>Gazebo/White</material></gazebo>
+    <gazebo reference="$(arg robot_name)/front_caster">
+        <mu1>0.001</mu1> <mu2>0.001</mu2> <kp>1000000.0</kp>
+        <kd>1.0</kd>
+    </gazebo>
 
     <link name="$(arg robot_name)/lidar_stand">
         <visual>
