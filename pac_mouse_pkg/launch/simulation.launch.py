@@ -127,7 +127,10 @@ def generate_launch_description():
     node_joint_state_publisher = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
-        parameters=[{'use_sim_time': True}]
+        parameters=[{
+            'use_sim_time': True,
+            'robot_description': mouse_desc_xml # <--- ENSURE THIS IS HERE
+        }]
     )
 
     # 6. TF FIXES
@@ -157,7 +160,10 @@ def generate_launch_description():
         executable='joint_state_publisher',
         name='cat_joint_state_publisher',
         namespace='cat', # Must match the namespace of the state publisher
-        parameters=[{'use_sim_time': True}]
+        parameters=[{
+            'use_sim_time': True,
+            'robot_description': cat_desc_xml  # <--- CRITICAL MISSING LINE
+        }]
     )
 
     # B. TF: Connect the Lidar Data to the Robot
