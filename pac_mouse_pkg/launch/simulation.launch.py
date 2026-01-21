@@ -196,7 +196,8 @@ def generate_launch_description():
     extra_delayed_nodes = TimerAction(
         period=7.0,
         actions=[
-            game_master
+            game_master,
+            nav2_launch
         ]
     )
 
