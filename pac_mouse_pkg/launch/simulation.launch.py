@@ -76,56 +76,70 @@ def generate_launch_description():
         output='screen'
     )
 
+    # --- NEW BRIDGE ---
+    bridge_config = os.path.join(pkg_share, 'config', 'bridge_params.yaml')
+    bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        parameters=[{'config_file': bridge_config}],
+        remappings=[
+            # We still need to merge TF into the global /tf topic
+            ('/mouse/tf', '/tf'),
+            ('/cat/tf', '/tf')
+        ],
+        output='screen'
+    )
+
     # 6. ROS GZ BRIDGE
     # This is the most critical part. It maps Gazebo topics to ROS topics.
     # We bridge the TF topics separately to merge them into the global /tf.
     
-    bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        arguments=[
-            # --- GLOBAL ---
-            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-
-            # --- MOUSE BRIDGE ---
-            '/model/mouse/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-            '/model/mouse/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/model/mouse/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/model/mouse/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            '/model/mouse/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            '/model/mouse/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/model/mouse/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
-
-            # --- CAT BRIDGE ---
-            '/model/cat/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-            '/model/cat/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/model/cat/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/model/cat/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            '/model/cat/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/model/cat/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            '/model/cat/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
-        ],
-        remappings=[
-            # MOUSE REMAPS
-            ('/model/mouse/cmd_vel', '/mouse/cmd_vel'),
-            ('/model/mouse/odometry', '/mouse/odom'),
-            ('/model/mouse/scan', '/mouse/scan'),
-            ('/model/mouse/tf', '/tf'), # Merge into global TF tree
-            ('/model/mouse/imu', '/mouse/imu'),
-            ('/model/mouse/camera/image_raw', '/mouse/camera/image_raw'),
-            ('/model/mouse/joint_states', '/mouse/joint_states'),
-
-            # CAT REMAPS
-            ('/model/cat/cmd_vel', '/cat/cmd_vel'),
-            ('/model/cat/odometry', '/cat/odom'),
-            ('/model/cat/scan', '/cat/scan'),
-            ('/model/cat/tf', '/tf'),   # Merge into global TF tree
-            ('/model/cat/imu', '/cat/imu'),
-            ('/model/cat/camera/image_raw', '/cat/camera/image_raw'),
-            ('/model/cat/joint_states', '/cat/joint_states'),
-        ],
-        output='screen'
-    )
+    #bridge = Node(
+    #    package='ros_gz_bridge',
+    #    executable='parameter_bridge',
+    #    arguments=[
+    #        # --- GLOBAL ---
+    #        '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+#
+    #        # --- MOUSE BRIDGE ---
+    #        '/model/mouse/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+    #        '/model/mouse/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+    #        '/model/mouse/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+    #        '/model/mouse/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+    #        '/model/mouse/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+    #        '/model/mouse/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+    #        '/model/mouse/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
+#
+    #        # --- CAT BRIDGE ---
+    #        '/model/cat/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+    #        '/model/cat/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+    #        '/model/cat/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+    #        '/model/cat/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+    #        '/model/cat/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+    #        '/model/cat/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+    #        '/model/cat/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
+    #    ],
+    #    remappings=[
+    #        # MOUSE REMAPS
+    #        ('/model/mouse/cmd_vel', '/mouse/cmd_vel'),
+    #        ('/model/mouse/odometry', '/mouse/odom'),
+    #        ('/model/mouse/scan', '/mouse/scan'),
+    #        ('/model/mouse/tf', '/tf'), # Merge into global TF tree
+    #        ('/model/mouse/imu', '/mouse/imu'),
+    #        ('/model/mouse/camera/image_raw', '/mouse/camera/image_raw'),
+    #        ('/model/mouse/joint_states', '/mouse/joint_states'),
+#
+    #        # CAT REMAPS
+    #        ('/model/cat/cmd_vel', '/cat/cmd_vel'),
+    #        ('/model/cat/odometry', '/cat/odom'),
+    #        ('/model/cat/scan', '/cat/scan'),
+    #        ('/model/cat/tf', '/tf'),   # Merge into global TF tree
+    #        ('/model/cat/imu', '/cat/imu'),
+    #        ('/model/cat/camera/image_raw', '/cat/camera/image_raw'),
+    #        ('/model/cat/joint_states', '/cat/joint_states'),
+    #    ],
+    #    output='screen'
+    #)
 
     # 7. EKF NODE (For the Mouse)
     # We override the frames here so we don't need to edit the ekf.yaml file manually

@@ -166,7 +166,7 @@
 
     <gazebo reference="$(arg robot_name)/lidar_link">
         <sensor name="lidar" type="gpu_lidar">
-            <frame_id>$(arg robot_name)/lidar_link</frame_id>
+            <frame_id>mouse/lidar_link</frame_id>
             <pose>0 0 0 0 0 0</pose>
             <always_on>true</always_on>
             <visualize>true</visualize>
