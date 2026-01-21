@@ -1,24 +1,35 @@
 import os
+import xacro
 from ament_index_python.packages import get_package_share_directory
+
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, TimerAction, AppendEnvironmentVariable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-import xacro
 
 def generate_launch_description():
+    # ========================================================================
+    # 1. SETUP & PATHS
+    # ========================================================================
     pkg_share = get_package_share_directory('pac_mouse_pkg')
-
-    # 1. SETUP MODEL PATH FOR GAZEBO
-    # This ensures Gazebo can find your mesh files if you have any
+    
+    # Ensure Gazebo can find models/meshes
     set_model_path = AppendEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH', 
         value=os.path.join(pkg_share, 'models')
     )
 
-    # 2. PROCESS XACRO FILES
-    # We pass the 'robot_name' argument to the Xacro file. 
-    # This creates the "mouse/base_link" and "cat/base_link" frames.
+    # Config Files
+    bridge_config    = os.path.join(pkg_share, 'config', 'bridge_params.yaml')
+    ekf_config       = os.path.join(pkg_share, 'config', 'ekf.yaml')
+    slam_config      = os.path.join(pkg_share, 'config', 'slam_params.yaml')
+    rviz_config      = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
+    world_file       = os.path.join(pkg_share, 'worlds', 'maze_v3.sdf')
+
+    # ========================================================================
+    # 2. PROCESS URDFs (XACRO)
+    # ========================================================================
+    # We pass 'robot_name' to create namespaced frames (e.g., mouse/base_link)
     
     # Process Mouse
     mouse_file = os.path.join(pkg_share, 'urdf', 'mouse.urdf.xacro')
@@ -30,8 +41,9 @@ def generate_launch_description():
     cat_doc = xacro.process_file(cat_file, mappings={'robot_name': 'cat'})
     cat_xml = cat_doc.toxml()
 
-    # 3. LAUNCH GAZEBO WORLD
-    world_file = os.path.join(pkg_share, 'worlds', 'maze_v3.sdf') 
+    # ========================================================================
+    # 3. GAZEBO SIMULATION
+    # ========================================================================
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')
@@ -39,10 +51,9 @@ def generate_launch_description():
         launch_arguments={'gz_args': f'-r {world_file}'}.items(),
     )
 
+    # ========================================================================
     # 4. SPAWN ROBOTS
-    # We use simple names 'mouse' and 'cat' to match the topics in the URDF 
-    # (e.g. /model/mouse/cmd_vel)
-    
+    # ========================================================================
     spawn_mouse = Node(
         package='ros_gz_sim', executable='create',
         arguments=['-string', mouse_xml, '-name', 'mouse', '-x', '-3.0', '-y', '-3.0', '-z', '0.1'],
@@ -55,53 +66,65 @@ def generate_launch_description():
         output='screen'
     )
 
-    # 5. ROBOT STATE PUBLISHERS
-    # These publish the static transforms (like wheel -> base_link).
-    # Since our URDFs already have namespaced links (mouse/base_link), we don't need 'frame_prefix'.
-    # We run them in their own namespaces to keep topics clean.
+    # ========================================================================
+    # 5. STATE PUBLISHERS & TF
+    # ========================================================================
     
+    # Mouse State Publisher
     mouse_rsp = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
+        package='robot_state_publisher', executable='robot_state_publisher',
         namespace='mouse', 
         parameters=[{'use_sim_time': True, 'robot_description': mouse_xml}],
         output='screen'
     )
 
+    # Cat State Publisher
     cat_rsp = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
+        package='robot_state_publisher', executable='robot_state_publisher',
         namespace='cat',
         parameters=[{'use_sim_time': True, 'robot_description': cat_xml}],
         output='screen'
     )
 
-    # --- NEW BRIDGE ---
-    bridge_config = os.path.join(pkg_share, 'config', 'bridge_params.yaml')
+    # Static TF Fixes (Gazebo Sensor Frame Alignment)
+    # Fixes nested sensor frames that sometimes fail to link in Gazebo
+    fix_mouse_lidar = Node(
+        package='tf2_ros', executable='static_transform_publisher',
+        arguments=['0.05', '0', '0.04', '0', '0', '0', 'mouse/base_link', 'mouse/mouse/base_link/lidar'],
+        output='screen'
+    )
+
+    fix_cat_lidar = Node(
+        package='tf2_ros', executable='static_transform_publisher',
+        arguments=['0.05', '0', '0.10', '0', '0', '0', 'cat/base_link', 'cat/cat/base_link/lidar'],
+        output='screen'
+    )
+
+    # ========================================================================
+    # 6. ROS-GAZEBO BRIDGE
+    # ========================================================================
     bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
+        package='ros_gz_bridge', executable='parameter_bridge',
         parameters=[{'config_file': bridge_config}],
         remappings=[
-            # We still need to merge TF into the global /tf topic
             ('/mouse/tf', '/tf'),
             ('/cat/tf', '/tf')
         ],
         output='screen'
     )
 
-    # 7. EKF NODE (For the Mouse)
-    # We override the frames here so we don't need to edit the ekf.yaml file manually
-    ekf_config_file = os.path.join(pkg_share, 'config', 'ekf.yaml')
+    # ========================================================================
+    # 7. LOCALIZATION (EKF & SLAM)
+    # ========================================================================
     
+    # EKF for Mouse (Sensor Fusion)
     mouse_ekf = Node(
-        package='robot_localization',
-        executable='ekf_node',
+        package='robot_localization', executable='ekf_node',
         name='ekf_filter_node',
         namespace='mouse',
         output='screen',
         parameters=[
-            ekf_config_file, 
+            ekf_config, 
             {
                 'use_sim_time': True,
                 'map_frame': 'map',
@@ -114,45 +137,32 @@ def generate_launch_description():
             }
         ]
     )
-    # ========================================================================
-    # 9. STATIC TF FIXES (THE "GHOST FRAME" BUSTERS)
-    # ========================================================================
-    
-    # Connect "mouse/base_link" -> "mouse/mouse/base_link/lidar"
-    # Offset: 0.05 0 0.04 (matches URDF)
-    fix_mouse_lidar = Node(package='tf2_ros', executable='static_transform_publisher',
-        arguments=['0.05', '0', '0.04', '0', '0', '0', 'mouse/base_link', 'mouse/mouse/base_link/lidar'],
-        output='screen')
 
-    # Connect "cat/base_link" -> "cat/cat/base_link/lidar"
-    # Offset: 0.05 0 0.10 (matches URDF)
-    fix_cat_lidar = Node(package='tf2_ros', executable='static_transform_publisher',
-        arguments=['0.05', '0', '0.10', '0', '0', '0', 'cat/base_link', 'cat/cat/base_link/lidar'],
-        output='screen')
-    
-    # 8. RVIZ
-    rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
+    # SLAM Toolbox (Mapping)
+    slam_toolbox = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('slam_toolbox'), 'launch', 'online_async_launch.py')
+        ),
+        launch_arguments={
+            'slam_params_file': slam_config,
+            'use_sim_time': 'true'
+        }.items()
+    )
+
+    # ========================================================================
+    # 8. VISUALIZATION (RVIZ)
+    # ========================================================================
     rviz = Node(
-        package='rviz2',
-        executable='rviz2',
+        package='rviz2', executable='rviz2',
         name='rviz2',
-        arguments=['-d', rviz_config_file],
+        arguments=['-d', rviz_config],
         parameters=[{'use_sim_time': True}]
     )
 
-    slam_config_file = os.path.join(pkg_share, 'config', 'slam_params.yaml')
-    toolbox_launch = IncludeLaunchDescription(
-    PythonLaunchDescriptionSource(
-        os.path.join(get_package_share_directory('slam_toolbox'), 'launch', 'online_async_launch.py')
-    ),
-    launch_arguments={
-        'slam_params_file': slam_config_file,
-        'use_sim_time': 'true'
-    }.items()
-    )
-
-    # 9. DELAYED ACTIONS
-    # We delay the EKF and RVIZ slightly to ensure Gazebo is up and publishing /clock
+    # ========================================================================
+    # 9. LAUNCH SEQUENCE
+    # ========================================================================
+    # Delay sensitive nodes to allow Gazebo to start publishing /clock
     delayed_nodes = TimerAction(
         period=5.0, 
         actions=[
@@ -160,7 +170,7 @@ def generate_launch_description():
             rviz,
             fix_mouse_lidar,
             fix_cat_lidar,
-            toolbox_launch
+            slam_toolbox
         ]
     )
 
