@@ -32,8 +32,8 @@ setup(
     zip_safe=True,
     maintainer='giginu',
     maintainer_email='damian.cutajar@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Autonomous Pac-Mouse simulation with Doraemon Cat and Cheese collection.',
+    license='Apache-2.0',
     extras_require={
         'test': [
             'pytest',
