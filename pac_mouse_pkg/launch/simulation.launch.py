@@ -209,7 +209,9 @@ def generate_launch_description():
             mouse_ekf,
             rviz,
             fix_mouse_lidar,
-            fix_cat_lidar
+            fix_cat_lidar,
+            tf_map_mouse,
+            tf_map_cat
         ]
     )
 
