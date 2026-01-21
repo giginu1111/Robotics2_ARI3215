@@ -51,7 +51,7 @@ controller_server:
       # Turning Logic: Snappy in-place turns
       use_rotate_to_heading: true
       rotate_to_heading_min_angle: 0.5   
-      rotate_to_heading_angular_vel: 5 # FAST ROTATION (1.8 rad/s)
+      rotate_to_heading_angular_vel: 5.0 # FAST ROTATION (1.8 rad/s)
       
       # Safety
       max_allowed_time_to_collision_up_to_carrot: 1.0
