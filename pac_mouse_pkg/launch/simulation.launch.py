@@ -90,57 +90,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # 6. ROS GZ BRIDGE
-    # This is the most critical part. It maps Gazebo topics to ROS topics.
-    # We bridge the TF topics separately to merge them into the global /tf.
-    
-    #bridge = Node(
-    #    package='ros_gz_bridge',
-    #    executable='parameter_bridge',
-    #    arguments=[
-    #        # --- GLOBAL ---
-    #        '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-#
-    #        # --- MOUSE BRIDGE ---
-    #        '/model/mouse/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-    #        '/model/mouse/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-    #        '/model/mouse/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-    #        '/model/mouse/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-    #        '/model/mouse/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-    #        '/model/mouse/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-    #        '/model/mouse/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
-#
-    #        # --- CAT BRIDGE ---
-    #        '/model/cat/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-    #        '/model/cat/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-    #        '/model/cat/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-    #        '/model/cat/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-    #        '/model/cat/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-    #        '/model/cat/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-    #        '/model/cat/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
-    #    ],
-    #    remappings=[
-    #        # MOUSE REMAPS
-    #        ('/model/mouse/cmd_vel', '/mouse/cmd_vel'),
-    #        ('/model/mouse/odometry', '/mouse/odom'),
-    #        ('/model/mouse/scan', '/mouse/scan'),
-    #        ('/model/mouse/tf', '/tf'), # Merge into global TF tree
-    #        ('/model/mouse/imu', '/mouse/imu'),
-    #        ('/model/mouse/camera/image_raw', '/mouse/camera/image_raw'),
-    #        ('/model/mouse/joint_states', '/mouse/joint_states'),
-#
-    #        # CAT REMAPS
-    #        ('/model/cat/cmd_vel', '/cat/cmd_vel'),
-    #        ('/model/cat/odometry', '/cat/odom'),
-    #        ('/model/cat/scan', '/cat/scan'),
-    #        ('/model/cat/tf', '/tf'),   # Merge into global TF tree
-    #        ('/model/cat/imu', '/cat/imu'),
-    #        ('/model/cat/camera/image_raw', '/cat/camera/image_raw'),
-    #        ('/model/cat/joint_states', '/cat/joint_states'),
-    #    ],
-    #    output='screen'
-    #)
-
     # 7. EKF NODE (For the Mouse)
     # We override the frames here so we don't need to edit the ekf.yaml file manually
     ekf_config_file = os.path.join(pkg_share, 'config', 'ekf.yaml')
@@ -181,16 +130,6 @@ def generate_launch_description():
         arguments=['0.05', '0', '0.10', '0', '0', '0', 'cat/base_link', 'cat/cat/base_link/lidar'],
         output='screen')
     
-    # A. Place Mouse Odom at (-3, -3) relative to Map
-    tf_map_mouse = Node(package='tf2_ros', executable='static_transform_publisher',
-        arguments=['-3.0', '-3.0', '0', '0', '0', '0', 'map', 'mouse/odom'],
-        output='screen')
-
-    # B. Place Cat Odom at (3, 3) relative to Map
-    tf_map_cat = Node(package='tf2_ros', executable='static_transform_publisher',
-        arguments=['3.0', '3.0', '0', '0', '0', '0', 'map', 'cat/odom'],
-        output='screen')
-    
     # 8. RVIZ
     rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
     rviz = Node(
@@ -222,9 +161,6 @@ def generate_launch_description():
             fix_mouse_lidar,
             fix_cat_lidar,
             toolbox_launch
-            #,
-            #tf_map_mouse,
-            #tf_map_cat
         ]
     )
 
