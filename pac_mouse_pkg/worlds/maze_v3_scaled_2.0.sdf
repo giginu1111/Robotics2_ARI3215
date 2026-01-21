@@ -1,50 +1,50 @@
-<sdf version='1.10'>
-  <world name='pac_mouse_maze'>
+<sdf version="1.10">
+  <world name="pac_mouse_maze">
     <model name="maze">
       <static>true</static>
       <scale>50 50 50</scale>
-    <physics name='1ms' type='ignored'>
+    <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>1000</real_time_update_rate>
     </physics>
-    <plugin name='gz::sim::systems::Physics' filename='gz-sim-physics-system'/>
-    <plugin name='gz::sim::systems::UserCommands' filename='gz-sim-user-commands-system'/>
-    <plugin name='gz::sim::systems::SceneBroadcaster' filename='gz-sim-scene-broadcaster-system'/>
-    <plugin name='gz::sim::systems::Sensors' filename='gz-sim-sensors-system'>
+    <plugin name="gz::sim::systems::Physics" filename="gz-sim-physics-system" />
+    <plugin name="gz::sim::systems::UserCommands" filename="gz-sim-user-commands-system" />
+    <plugin name="gz::sim::systems::SceneBroadcaster" filename="gz-sim-scene-broadcaster-system" />
+    <plugin name="gz::sim::systems::Sensors" filename="gz-sim-sensors-system">
       <render_engine>ogre2</render_engine>
     </plugin>
     <gravity>0 0 -9.8000000000000007</gravity>
     <magnetic_field>5.5644999999999998e-06 2.2875799999999999e-05 -4.2388400000000002e-05</magnetic_field>
-    <atmosphere type='adiabatic'/>
+    <atmosphere type="adiabatic" />
     <scene>
       <ambient>0.400000006 0.400000006 0.400000006 1</ambient>
       <background>0.699999988 0.699999988 0.699999988 1</background>
       <shadows>true</shadows>
     </scene>
-    <model name='ground_plane'>
+    <model name="ground_plane">
       <static>true</static>
-      <link name='link'>
-        <collision name='collision'>
+      <link name="link">
+        <collision name="collision">
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>200.0 200.0</size>
             </plane>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='visual'>
+        <visual name="visual">
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>200.0 200.0</size>
             </plane>
           </geometry>
           <material>
@@ -52,9 +52,9 @@
             <diffuse>0.800000012 0.800000012 0.800000012 1</diffuse>
           </material>
         </visual>
-        <pose>0 0 0 0 0 0</pose>
+        <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -67,36 +67,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>0 0 0 0 0 0</pose>
+      <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='wall_n'>
+    <model name="wall_n">
       <static>true</static>
-      <link name='l'>
-        <pose>0 7 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 14.0 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>14.300000000000001 0.14999999999999999 1</size>
+              <size>28.6 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>14.300000000000001 0.14999999999999999 1</size>
+              <size>28.6 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -109,36 +109,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>0 0 0 0 0 0</pose>
+      <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='wall_s'>
+    <model name="wall_s">
       <static>true</static>
-      <link name='l'>
-        <pose>0 -7 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 -14.0 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>14.300000000000001 0.14999999999999999 1</size>
+              <size>28.6 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>14.300000000000001 0.14999999999999999 1</size>
+              <size>28.6 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -151,36 +151,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>0 0 0 0 0 0</pose>
+      <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='wall_e'>
+    <model name="wall_e">
       <static>true</static>
-      <link name='l'>
-        <pose>7 0 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>14.0 0.0 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 14.300000000000001 1</size>
+              <size>0.3 28.6 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 14.300000000000001 1</size>
+              <size>0.3 28.6 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -193,36 +193,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>0 0 0 0 0 0</pose>
+      <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='wall_w'>
+    <model name="wall_w">
       <static>true</static>
-      <link name='l'>
-        <pose>-7 0 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-14.0 0.0 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 14.300000000000001 1</size>
+              <size>0.3 28.6 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 14.300000000000001 1</size>
+              <size>0.3 28.6 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -235,36 +235,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>0 0 0 0 0 0</pose>
+      <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='center_h1'>
+    <model name="center_h1">
       <static>true</static>
-      <link name='l'>
-        <pose>0 1.2 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 2.4 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -277,36 +277,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>0.31083199381828308 2.7484714984893799 0 0 0 0</pose>
+      <pose>0.6216639876365662 5.49694299697876 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='center_h2'>
+    <model name="center_h2">
       <static>true</static>
-      <link name='l'>
-        <pose>0 -1.2 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 -2.4 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -319,36 +319,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>0.30546599626541138 -2.7761015892028809 0 0 0 0</pose>
+      <pose>0.6109319925308228 -5.552203178405762 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='mid_n1'>
+    <model name="mid_n1">
       <static>true</static>
-      <link name='l'>
-        <pose>0 4.5999999999999996 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 9.2 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>6.5999999999999996 0.14999999999999999 1</size>
+              <size>13.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>6.5999999999999996 0.14999999999999999 1</size>
+              <size>13.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -361,36 +361,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>-1.6817300319671631 0.41679677367210388 0 0 0 0</pose>
+      <pose>-3.363460063934326 0.8335935473442078 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='mid_s1'>
+    <model name="mid_s1">
       <static>true</static>
-      <link name='l'>
-        <pose>0 -4.5999999999999996 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 -9.2 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>6.5999999999999996 0.14999999999999999 1</size>
+              <size>13.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>6.5999999999999996 0.14999999999999999 1</size>
+              <size>13.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -403,36 +403,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>-1.6651300191879272 -0.50916963815689087 0 0 0 0</pose>
+      <pose>-3.3302600383758545 -1.0183392763137817 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_n1'>
+    <model name="tooth_n1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -445,36 +445,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>-3.973536491394043 0 0 0 0 0</pose>
+      <pose>-7.947072982788086 0.0 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_n2'>
+    <model name="tooth_n2">
       <static>true</static>
-      <link name='l'>
-        <pose>1 2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>2.0 5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -487,36 +487,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>-1.9143466949462891 0.34273400902748108 0 0 0 0</pose>
+      <pose>-3.828693389892578 0.6854680180549622 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1'>
+    <model name="tooth_s1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -529,36 +529,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>-3.8529505729675293 0 0 0 0 0</pose>
+      <pose>-7.705901145935059 0.0 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s2'>
+    <model name="tooth_s2">
       <static>true</static>
-      <link name='l'>
-        <pose>1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -571,36 +571,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>-1.9104142189025879 -0.36555600166320801 0 0 0 0</pose>
+      <pose>-3.820828437805176 -0.731112003326416 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l1'>
+    <model name="side_l1">
       <static>true</static>
-      <link name='l'>
-        <pose>-4.5999999999999996 1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-9.2 3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -613,36 +613,36 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>-1.4447000026702881 3.3100700378417969 0.017654599621891975 0 0 0</pose>
+      <pose>-2.889400005340576 6.620140075683594 0.017654599621891975 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l2'>
+    <model name="side_l2">
       <static>true</static>
-      <link name='l'>
-        <pose>-4 -1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-8.0 -3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
         <inertial>
-          <pose>0 0 0 0 0 0</pose>
+          <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
           <mass>1</mass>
           <inertia>
             <ixx>1</ixx>
@@ -655,816 +655,816 @@
         </inertial>
         <enable_wind>false</enable_wind>
       </link>
-      <pose>1.5401099920272827 0.2899869978427887 0 0 0 0</pose>
+      <pose>3.0802199840545654 0.5799739956855774 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
    
-    <model name='side_l1_1'>
+    <model name="side_l1_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-4.5999999999999996 1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-9.2 3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-1.4374589282612344 -6.9057183626162679 0 0 0 0</pose>
+      <pose>-2.874917856522469 -13.811436725232536 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l1_2'>
+    <model name="side_l1_2">
       <static>true</static>
-      <link name='l'>
-        <pose>-4.5999999999999996 1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-9.2 3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-1.462189555409112 1.2981442079814005 0.017654599621891975 0 0 0</pose>
+      <pose>-2.924379110818224 2.596288415962801 0.017654599621891975 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l1_3'>
+    <model name="side_l1_3">
       <static>true</static>
-      <link name='l'>
-        <pose>-4.5999999999999996 1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-9.2 3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-1.4584377596112619 -4.924460619562498 0.017654599621891975 0 0 0</pose>
+      <pose>-2.9168755192225237 -9.848921239124996 0.017654599621891975 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='center_h1_1_1_1'>
+    <model name="center_h1_1_1_1">
       <static>true</static>
-      <link name='l'>
-        <pose>0 1.2 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 2.4 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-3.7317791080781486 -0.10137727959371734 0 0 0 0</pose>
+      <pose>-7.463558216156297 -0.20275455918743468 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='center_h1_1_1_2'>
+    <model name="center_h1_1_1_2">
       <static>true</static>
-      <link name='l'>
-        <pose>0 1.2 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 2.4 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-3.7089964812762171 -2.3421180831138217 0 0 0 0</pose>
+      <pose>-7.417992962552434 -4.6842361662276435 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_1'>
+    <model name="tooth_s1_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-2.9704577070137894 4.031986442187014 0 0 0 0</pose>
+      <pose>-5.940915414027579 8.063972884374028 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2'>
+    <model name="tooth_s1_2">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-2.9420648420682713 1.5576978093052642 0 0 0 0</pose>
+      <pose>-5.884129684136543 3.1153956186105285 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_4'>
+    <model name="tooth_s1_4">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-2.9003704805906012 9.9780785939233247 0 0 0 0</pose>
+      <pose>-5.800740961181202 19.95615718784665 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_5'>
+    <model name="tooth_s1_5">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-1.9782247153589907 7.5736243626817039 0 0 0 0</pose>
+      <pose>-3.9564494307179814 15.147248725363408 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_6'>
+    <model name="tooth_s1_6">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-3.9258784000761473 8.0205390759469992 0 0 0 0</pose>
+      <pose>-7.851756800152295 16.041078151894 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_7'>
+    <model name="tooth_s1_7">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-3.9343864187147339 -2.3951841738276638 0 0 0 0</pose>
+      <pose>-7.868772837429468 -4.790368347655328 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_8'>
+    <model name="tooth_s1_8">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-2.9188104373121644 -4.5235124282362271 0 0 0 0</pose>
+      <pose>-5.837620874624329 -9.047024856472454 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_9'>
+    <model name="tooth_s1_9">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-1.9463405047141444 -2.1540964707850181 0 0 0 0</pose>
+      <pose>-3.892681009428289 -4.308192941570036 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_10'>
+    <model name="tooth_s1_10">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>-5.8773021815188624 2.7658992044078894 0 0 0 0</pose>
+      <pose>-11.754604363037725 5.531798408815779 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l2_1'>
+    <model name="side_l2_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-4 -1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-8.0 -3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>1.5103553576525348 3.1898467439566711 0 0 0 0</pose>
+      <pose>3.0207107153050696 6.379693487913342 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_3_1'>
+    <model name="tooth_s1_3_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>1.5304648380906869 2.7561842549198903 0 0 0 0</pose>
+      <pose>3.060929676181374 5.5123685098397806 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_3_1_1'>
+    <model name="tooth_s1_3_1_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>0.72212021994473563 2.7459512193323832 0 0 0 0</pose>
+      <pose>1.4442404398894713 5.491902438664766 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_1'>
+    <model name="tooth_s1_2_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>4.99764025216043 -2.4716432400592252 0 0 0 0</pose>
+      <pose>9.99528050432086 -4.94328648011845 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_2'>
+    <model name="tooth_s1_2_2">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>4.9690207444034558 7.9256186920607608 0 0 0 0</pose>
+      <pose>9.938041488806912 15.851237384121522 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_3'>
+    <model name="tooth_s1_2_3">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>3.6163339644483763 -4.0105304334107457 0 0 0 0</pose>
+      <pose>7.232667928896753 -8.021060866821491 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_4'>
+    <model name="tooth_s1_2_4">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>3.6454299283655223 9.5895302907470494 0 0 0 0</pose>
+      <pose>7.2908598567310445 19.1790605814941 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='center_h2_1'>
+    <model name="center_h2_1">
       <static>true</static>
-      <link name='l'>
-        <pose>0 -1.2 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 -2.4 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>3.1726983017028059 -0.82560303551284386 0 0 0 0</pose>
+      <pose>6.345396603405612 -1.6512060710256877 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='center_h2_2'>
+    <model name="center_h2_2">
       <static>true</static>
-      <link name='l'>
-        <pose>0 -1.2 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 -2.4 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>3.2621592898328027 3.1640089977516896 0 0 0 0</pose>
+      <pose>6.524318579665605 6.328017995503379 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l2_1_1'>
+    <model name="side_l2_1_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-4 -1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-8.0 -3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>5.9168020405574424 0.23885795108122576 0 0 0 0</pose>
+      <pose>11.833604081114885 0.4777159021624515 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l2_1_1_1'>
+    <model name="side_l2_1_1_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-4 -1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-8.0 -3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>6.9721422565185849 3.2437429016186008 0 0 0 0</pose>
+      <pose>13.94428451303717 6.487485803237202 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l2_1_1_2'>
+    <model name="side_l2_1_1_2">
       <static>true</static>
-      <link name='l'>
-        <pose>-4 -1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-8.0 -3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>7.9275577732367806 1.7945692242311466 0 0 0 0</pose>
+      <pose>15.855115546473561 3.5891384484622932 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l2_1_1_3'>
+    <model name="side_l2_1_1_3">
       <static>true</static>
-      <link name='l'>
-        <pose>-4 -1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-8.0 -3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>6.938078460541159 -0.25701150594710054 0 0 0 0</pose>
+      <pose>13.876156921082318 -0.5140230118942011 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='ground_plane_1'>
+    <model name="ground_plane_1">
       <static>true</static>
-      <link name='link'>
-        <collision name='collision'>
+      <link name="link">
+        <collision name="collision">
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>200.0 200.0</size>
             </plane>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='visual'>
+        <visual name="visual">
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>200.0 200.0</size>
             </plane>
           </geometry>
           <material>
@@ -1473,330 +1473,330 @@
           </material>
         </visual>
       </link>
-      <pose>2.8394381824645403 1.2870867688436358 0 0 0 0</pose>
+      <pose>5.6788763649290805 2.5741735376872716 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='side_l2_1_1_1_1'>
+    <model name="side_l2_1_1_1_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-4 -1.8 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-8.0 -3.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 2.2000000000000002 1</size>
+              <size>0.3 4.4 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>5.9361390937104712 3.7657071149472925 0 0 0 0</pose>
+      <pose>11.872278187420942 7.531414229894585 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_1_1'>
+    <model name="tooth_s1_2_1_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>6.9486210122854555 -3.0278056015503525 0 0 0 0</pose>
+      <pose>13.897242024570911 -6.055611203100705 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_1_2'>
+    <model name="tooth_s1_2_1_2">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>6.9908902325490052 8.5968397210925378 0 0 0 0</pose>
+      <pose>13.98178046509801 17.193679442185076 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_1_3'>
+    <model name="tooth_s1_2_1_3">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>6.427042977455546 2.8014574147892173 0 0 0 0</pose>
+      <pose>12.854085954911092 5.602914829578435 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_3_1_2'>
+    <model name="tooth_s1_3_1_2">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>7.8626904466230405 2.810383377791108 0 0 0 0</pose>
+      <pose>15.725380893246081 5.620766755582216 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='center_h2_3'>
+    <model name="center_h2_3">
       <static>true</static>
-      <link name='l'>
-        <pose>0 -1.2 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 -2.4 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>7.192244010554524 -2.7843579010605422 0 0 0 0</pose>
+      <pose>14.384488021109048 -5.568715802121084 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='center_h2_3_1'>
+    <model name="center_h2_3_1">
       <static>true</static>
-      <link name='l'>
-        <pose>0 -1.2 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>0.0 -2.4 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>4.5999999999999996 0.14999999999999999 1</size>
+              <size>9.2 0.3 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>7.2572946881052793 5.1501648194248162 0 0 0 0</pose>
+      <pose>14.514589376210559 10.300329638849632 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_1_3_1'>
+    <model name="tooth_s1_2_1_3_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>5.9640031272362615 -1.1331859256246981 0 0 0 0</pose>
+      <pose>11.928006254472523 -2.266371851249396 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_2_1_3_2'>
+    <model name="tooth_s1_2_1_3_2">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>5.9904557066822042 6.5576250821908335 0 0 0 0</pose>
+      <pose>11.980911413364408 13.115250164381667 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_4_1'>
+    <model name="tooth_s1_4_1">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>0.093527535457181621 9.5954025150880362 0 0 0 0</pose>
+      <pose>0.18705507091436324 19.190805030176072 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <model name='tooth_s1_4_2'>
+    <model name="tooth_s1_4_2">
       <static>true</static>
-      <link name='l'>
-        <pose>-1 -2.7999999999999998 0.5 0 0 0</pose>
-        <collision name='c'>
+      <link name="l">
+        <pose>-2.0 -5.6 0.5 0.0 0.0 0.0</pose>
+        <collision name="c">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
           <surface>
             <friction>
-              <ode/>
+              <ode />
             </friction>
-            <bounce/>
-            <contact/>
+            <bounce />
+            <contact />
           </surface>
         </collision>
-        <visual name='v'>
+        <visual name="v">
           <geometry>
             <box>
-              <size>0.14999999999999999 1.6000000000000001 1</size>
+              <size>0.3 3.2 1.0</size>
             </box>
           </geometry>
         </visual>
       </link>
-      <pose>0.069000451535844221 -3.997569230153422 0 0 0 0</pose>
+      <pose>0.13800090307168844 -7.995138460306844 0.0 0.0 0.0 0.0</pose>
       <self_collide>false</self_collide>
     </model>
-    <light name='sun' type='directional'>
-      <pose>0 0 10 0 0 0</pose>
+    <light name="sun" type="directional">
+      <pose>0.0 0.0 10.0 0.0 0.0 0.0</pose>
       <cast_shadows>true</cast_shadows>
       <intensity>1</intensity>
       <direction>-0.5 0.10000000000000001 -0.90000000000000002</direction>
