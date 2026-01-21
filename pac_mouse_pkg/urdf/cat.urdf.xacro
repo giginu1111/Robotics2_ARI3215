@@ -281,7 +281,7 @@
 
     <gazebo reference="lidar_link">
         <sensor name="lidar" type="gpu_lidar">
-            <frame_id>lidar_link</frame_id>
+            <frame_id>doraemon/lidar_link</frame_id>
             <pose>0 0 0 0 0 0</pose>
             <always_on>true</always_on>
             <visualize>true</visualize>
@@ -373,7 +373,7 @@
             <topic>cat/cmd_vel</topic>
             <odom_topic>cat/odom</odom_topic>
             <frame_id>cat/odom</frame_id> 
-            <child_frame_id>base_link</child_frame_id>
+            <child_frame_id>doraemon/base_link</child_frame_id>
 
         </plugin>
     </gazebo>

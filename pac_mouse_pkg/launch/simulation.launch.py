@@ -127,6 +127,7 @@ def generate_launch_description():
     node_joint_state_publisher = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
+        namespace='mouse',
         parameters=[{
             'use_sim_time': True,
             'robot_description': mouse_desc_xml # <--- ENSURE THIS IS HERE
