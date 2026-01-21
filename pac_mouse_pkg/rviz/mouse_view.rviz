@@ -3,7 +3,7 @@ Panels:
     Help Height: 78
     Name: Displays
     Property Tree Widget:
-      Expanded: [] # <--- CLEARED: All items will be collapsed by default
+      Expanded: []
       Splitter Ratio: 0.5
     Tree Height: 557
 Visualization Manager:
@@ -62,7 +62,7 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 25; 0
-      Color Transformer: FlatColor # <--- KEEPS IT RED
+      Color Transformer: FlatColor
       Name: Mouse Laser
       Size (m): 0.05
       Topic:
@@ -78,7 +78,7 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 0; 255; 255
-      Color Transformer: FlatColor # <--- KEEPS IT CYAN
+      Color Transformer: FlatColor
       Name: Cat Laser
       Size (m): 0.05
       Topic:
@@ -120,6 +120,63 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Best Effort
         Value: /cat/camera/image_raw
+      Value: true
+
+    # ==========================================
+    # NEW: NAVIGATION VISUALIZATIONS
+    # ==========================================
+    
+    # --- GLOBAL COSTMAP (Static Safety Bubbles) ---
+    - Alpha: 0.7
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Global Costmap
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /global_costmap/costmap
+      Value: true
+
+    # --- LOCAL COSTMAP (Dynamic Obstacle Box) ---
+    - Alpha: 0.7
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Local Costmap
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /local_costmap/costmap
+      Value: true
+
+    # --- GLOBAL PLAN (The Green Path Line) ---
+    - Alpha: 1.0
+      Class: rviz_default_plugins/Path
+      Color: 0; 255; 0   # Bright Green
+      Enabled: true
+      Head Diameter: 0.3
+      Head Length: 0.2
+      Length: 0.3
+      Line Style: Lines
+      Line Width: 0.03
+      Name: Global Plan
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /plan
       Value: true
 
   Enabled: true
