@@ -159,6 +159,14 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
+    # GAME MASTER (Referee)
+    game_master = Node(
+        package='pac_mouse_pkg',
+        executable='game_master',
+        name='game_master',
+        output='screen'
+    )
+
     # ========================================================================
     # 9. LAUNCH SEQUENCE
     # ========================================================================
@@ -173,6 +181,12 @@ def generate_launch_description():
             slam_toolbox
         ]
     )
+    extra_delayed_nodes = TimerAction(
+        period=7.0,
+        actions=[
+            game_master
+        ]
+    )
 
     return LaunchDescription([
         set_model_path,
@@ -182,5 +196,6 @@ def generate_launch_description():
         mouse_rsp,
         cat_rsp,
         bridge,
-        delayed_nodes
+        delayed_nodes,
+        extra_delayed_nodes
     ])

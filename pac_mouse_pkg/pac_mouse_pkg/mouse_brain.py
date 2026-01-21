@@ -4,6 +4,7 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from transforms3d.euler import quat2euler
+from std_msgs.msg import String
 import math
 import subprocess  # Used to delete cheese
 
@@ -16,6 +17,8 @@ class MouseBrain(Node):
         self.sub_cat = self.create_subscription(Odometry, '/cat/odom', self.update_cat_pose, 10)
         self.sub_lidar = self.create_subscription(LaserScan, '/mouse/scan', self.lidar_callback, 10)
         self.publisher_ = self.create_publisher(Twist, '/mouse/cmd_vel', 10)
+
+        self.pub_score = self.create_publisher(String, '/cheese_eaten', 10)
 
         # --- GAME STATE ---
         # List of Cheese Locations (x, y, name)
@@ -61,6 +64,11 @@ class MouseBrain(Node):
         try:
             subprocess.run(cmd, capture_output=True)
             self.get_logger().info(f"ATE {cheese_name}!")
+            # NOTIFY GAME MASTER
+            msg = String()
+            msg.data = cheese_name
+            self.pub_score.publish(msg)
+
         except Exception as e:
             self.get_logger().error(f"Failed to eat cheese: {e}")
 

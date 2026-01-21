@@ -58,6 +58,7 @@ setup(
             'cat_brain = pac_mouse_pkg.cat_brain:main',
             'teleop = pac_mouse_pkg.teleop:main',
             'mouse_brain = pac_mouse_pkg.mouse_brain:main',
+            'game_master = pac_mouse_pkg.game_master:main'
         ],
     },
 )
