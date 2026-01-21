@@ -12,7 +12,7 @@ def generate_launch_description():
     # 1. SETUP & PATHS
     # ========================================================================
     pkg_share = get_package_share_directory('pac_mouse_pkg')
-    nav2_share = get_package_share_directory('nav2_bringup')
+    nav2_params_file = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
     slam_toolbox_share = get_package_share_directory('slam_toolbox')
     
     # Ensure Gazebo can find models/meshes
@@ -150,28 +150,44 @@ def generate_launch_description():
             'use_sim_time': 'true'
         }.items()
     )
-    # 8. NAVIGATION 2 (The Fix!)
-    # We define the list of nodes explicitly to EXCLUDE 'collision_monitor' and 'velocity_smoother'
-    nav_nodes_to_start = [
-        'controller_server', 'smoother_server', 'planner_server', 'behavior_server',
-        'bt_navigator', 'waypoint_follower', 'route_server', 'opennav_docking'
-    ]
+    # 8. NAVIGATION (Manual Launch - Bypasses Collision Monitor Error)
+    # We launch only the 4 essential nodes needed to drive.
+    nav_nodes = []
+    
+    # A. Controller (The Driver)
+    nav_nodes.append(Node(
+        package='nav2_controller', executable='controller_server',
+        output='screen', parameters=[nav2_params_file],
+        remappings=[('cmd_vel', '/mouse/cmd_vel')] # WIRE DIRECTLY TO MOUSE
+    ))
 
-    nav2_launch_group = GroupAction([
-        # IMPORTANT: Remap the default internal topic 'cmd_vel_nav' directly to the robot's '/mouse/cmd_vel'
-        SetRemap(src='cmd_vel_nav', dst='/mouse/cmd_vel'),
-        
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(nav2_share, 'launch', 'navigation_launch.py')),
-            launch_arguments={
-                'use_sim_time': 'true',
-                'params_file': os.path.join(pkg_share, 'config', 'nav2_params.yaml'),
-                'autostart': 'true',
-                # This overrides the default list, removing the broken nodes
-                'lifecycle_nodes': str(nav_nodes_to_start) 
-            }.items()
-        )
-    ])
+    # B. Planner (The Map Reader)
+    nav_nodes.append(Node(
+        package='nav2_planner', executable='planner_server',
+        name='planner_server', output='screen', parameters=[nav2_params_file]
+    ))
+
+    # C. Behaviors (Recovery actions like backing up)
+    nav_nodes.append(Node(
+        package='nav2_behaviors', executable='behavior_server',
+        name='behavior_server', output='screen', parameters=[nav2_params_file],
+        remappings=[('cmd_vel', '/mouse/cmd_vel')]
+    ))
+
+    # D. BT Navigator (The Brain that coordinates them)
+    nav_nodes.append(Node(
+        package='nav2_bt_navigator', executable='bt_navigator',
+        name='bt_navigator', output='screen', parameters=[nav2_params_file]
+    ))
+
+    # E. Lifecycle Manager (Turns them all on)
+    nav_nodes.append(Node(
+        package='nav2_lifecycle_manager', executable='lifecycle_manager',
+        name='lifecycle_manager_navigation', output='screen',
+        parameters=[{'use_sim_time': True, 
+                     'autostart': True, 
+                     'node_names': ['controller_server', 'planner_server', 'behavior_server', 'bt_navigator']}]
+    ))
 
     # ========================================================================
     # 8. VISUALIZATION (RVIZ)
@@ -209,7 +225,7 @@ def generate_launch_description():
         period=7.0,
         actions=[
             game_master,
-            nav2_launch_group
+            *nav_nodes
         ]
     )
 
