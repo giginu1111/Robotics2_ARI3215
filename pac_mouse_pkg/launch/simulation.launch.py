@@ -177,6 +177,17 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}],
         output='screen'
     )
+    # D. TF: Glue the Cat's Odom to the World Map
+    # This says: "The Cat's starting point (cat/odom) is at (0,0) on the map."
+    node_tf_map_to_cat = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='tf_map_to_cat',
+        # Arguments: x y z yaw pitch roll parent child
+        arguments=['0', '0', '0', '0', '0', '0', 'map', 'cat/odom'],
+        parameters=[{'use_sim_time': True}],
+        output='screen'
+    )
 
     # 7. EKF
     ekf_config_file = os.path.join(pkg_share, 'config', 'ekf.yaml')
@@ -225,6 +236,7 @@ def generate_launch_description():
             node_cat_state_publisher,
             node_cat_joint_state_publisher,
             node_cat_tf_camera,
+            node_tf_map_to_cat,
 
             # --- RVIZ ---
             node_rviz
