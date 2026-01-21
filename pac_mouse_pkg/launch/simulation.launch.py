@@ -166,19 +166,6 @@ def generate_launch_description():
         }]
     )
 
-    # B. TF: Connect the Lidar Data to the Robot
-    # The Robot State Publisher creates "doraemon/lidar_link"
-    # The Gazebo Plugin outputs data in "lidar_link"
-    # This node connects them.
-    node_cat_tf_lidar = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='cat_tf_lidar_fix',
-        # Arguments: x y z qx qy qz qw parent_frame child_frame
-        arguments=['0', '0', '0', '0', '0', '0', '1', 'doraemon/lidar_link', 'lidar_link'],
-        parameters=[{'use_sim_time': True}],
-        output='screen'
-    )
 
     # C. TF: Connect the Camera Data (Optional but good)
     node_cat_tf_camera = Node(
