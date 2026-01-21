@@ -19,9 +19,13 @@ def generate_launch_description():
     # ---------------------------------------------
 
     # 1. RESOURCES
-    xacro_file = os.path.join(pkg_share, 'urdf', 'mouse.urdf.xacro')
-    doc = xacro.process_file(xacro_file)
-    robot_desc_xml = doc.toxml()
+    mouse_file_path = os.path.join(pkg_share, 'urdf', 'mouse.urdf.xacro')
+    mouse_doc = xacro.process_file(mouse_file_path)
+    mouse_desc_xml = mouse_doc.toxml()
+
+    cat_file_path = os.path.join(pkg_share, 'urdf', 'cat.urdf.xacro') 
+    cat_doc = xacro.process_file(cat_file_path)
+    cat_desc_xml = cat_doc.toxml()
     
     rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
     world_file = os.path.join(pkg_share, 'worlds', 'maze.sdf') 
@@ -36,7 +40,7 @@ def generate_launch_description():
         launch_arguments={'gz_args': f'-r {world_file}'}.items(),
     )
 
-    node_spawn = Node(
+    node_spawn_mouse = Node(
         package='ros_gz_sim',
         executable='create',
         arguments=[
@@ -46,6 +50,19 @@ def generate_launch_description():
             '-y', '-3.0',  # Move left 3 meters (Safe corner)
             '-z', '0.1',   # Lift up slightly
             '-Y', '0.0'    # Face East (0.0 radians)
+        ],
+        output='screen'
+    )
+
+    node_spawn_cat = Node(
+        package='ros_gz_sim',
+        executable='create',
+        arguments=[
+            '-string', cat_desc_xml,   # Pass the actual XML string
+            '-name', 'doraemon',       # The name in Gazebo
+            '-x', '0.0',               # Spawning at (0,0) - Center of maze?
+            '-y', '0.0',
+            '-z', '0.3',               # Slightly higher so it doesn't get stuck in floor
         ],
         output='screen'
     )
@@ -71,7 +88,7 @@ def generate_launch_description():
         executable='robot_state_publisher',
         output='screen',
         parameters=[{
-            'robot_description': robot_desc_xml,
+            'robot_description': mouse_desc_xml,
             'use_sim_time': True 
         }]
     )
@@ -148,9 +165,10 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        set_model_path, # <--- IMPORTANT: This must be in the return list
+        set_model_path,
         gazebo,
-        node_spawn,
+        node_spawn_mouse,
+        node_spawn_cat,
         node_ros_gz_bridge,
         delayed_nodes,
         toolbox_launch

@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<robot name="doraemon_cat" xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot name="felix_cat" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
     <xacro:property name="torso_len" value="0.4"/>
     <xacro:property name="torso_width" value="0.2"/>
@@ -12,11 +12,12 @@
     <xacro:property name="wheel_mass" value="1.0"/>
     <xacro:property name="caster_radius" value="0.04"/>
 
-    <material name="dora_blue"><color rgba="0.0 0.6 0.9 1"/></material>
-    <material name="dora_white"><color rgba="1 1 1 1"/></material>
-    <material name="dora_red"><color rgba="0.9 0.1 0.1 1"/></material>
-    <material name="dora_yellow"><color rgba="1 0.8 0.1 1"/></material>
+    <material name="blue"> <color rgba="0.16 0.33 0.48 1"/></material>
+    
+    
+    <material name="white"><color rgba="1 1 1 1"/></material>
     <material name="black"><color rgba="0 0 0 1"/></material>
+    <material name="red"><color rgba="0.6941 0.2471 0.3294 1"/></material>
     <material name="silver"><color rgba="0.75 0.75 0.75 1"/></material>
 
     <xacro:macro name="box_inertia" params="m x y z">
@@ -47,39 +48,26 @@
     <link name="base_link">
         <visual>
             <geometry><box size="${torso_len} ${torso_width} ${torso_height}"/></geometry>
-            <material name="dora_blue"/>
+            <material name="blue"/>
         </visual>
         <collision>
             <geometry><box size="${torso_len} ${torso_width} ${torso_height}"/></geometry>
         </collision>
         <xacro:box_inertia m="${torso_mass}" x="${torso_len}" y="${torso_width}" z="${torso_height}"/>
     </link>
-    <gazebo reference="base_link"><material>Gazebo/SkyBlue</material></gazebo>
-
-    <link name="pocket">
-        <visual>
-            <geometry><box size="0.01 0.14 0.10"/></geometry>
-            <material name="dora_white"/>
-        </visual>
-    </link>
-    <joint name="pocket_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="pocket"/>
-        <origin xyz="${torso_len/2 + 0.001} 0 0" rpy="0 0 0"/>
-    </joint>
-    <gazebo reference="pocket"><material>Gazebo/White</material></gazebo>
+    <gazebo reference="base_link"><material>Gazebo/Blue</material></gazebo>
 
     <link name="head">
         <visual>
             <geometry><box size="${head_size} ${head_size} ${head_size}"/></geometry>
-            <material name="dora_blue"/>
+            <material name="blue"/>
         </visual>
         <collision>
             <geometry><box size="${head_size} ${head_size} ${head_size}"/></geometry>
         </collision>
         <xacro:box_inertia m="1.0" x="${head_size}" y="${head_size}" z="${head_size}"/>
     </link>
-    <gazebo reference="head"><material>Gazebo/SkyBlue</material></gazebo>
+    <gazebo reference="head"><material>Gazebo/Blue</material></gazebo>
 
     <joint name="neck_joint" type="fixed">
         <parent link="base_link"/>
@@ -87,76 +75,50 @@
         <origin xyz="${torso_len/2 + head_size/2 - 0.05} 0 ${torso_height/2 - head_size/4}" rpy="0 0 0"/>
     </joint>
 
-    <link name="face_mask">
-        <visual>
-            <geometry><box size="0.01 0.13 0.11"/></geometry>
-            <material name="dora_white"/>
-        </visual>
-    </link>
-    <joint name="face_mask_joint" type="fixed">
-        <parent link="head"/>
-        <child link="face_mask"/>
-        <origin xyz="${head_size/2 + 0.001} 0 -0.01" rpy="0 0 0"/>
-    </joint>
-    <gazebo reference="face_mask"><material>Gazebo/White</material></gazebo>
-
-    <link name="nose">
-        <visual>
-            <geometry><sphere radius="0.015"/></geometry>
-            <material name="dora_red"/>
-        </visual>
-    </link>
-    <joint name="nose_joint" type="fixed">
-        <parent link="head"/>
-        <child link="nose"/>
-        <origin xyz="${head_size/2 + 0.01} 0 0.01" rpy="0 0 0"/>
-    </joint>
-    <gazebo reference="nose"><material>Gazebo/Red</material></gazebo>
-
     <link name="left_eye">
         <visual>
-            <geometry><sphere radius="0.018"/></geometry>
-            <material name="dora_white"/>
+            <geometry><sphere radius="0.015"/></geometry>
+            <material name="white"/>
         </visual>
     </link>
     <joint name="left_eye_joint" type="fixed">
         <parent link="head"/>
         <child link="left_eye"/>
-        <origin xyz="${head_size/2 + 0.005} 0.035 0.035" rpy="0 0 0"/>
+        <origin xyz="${head_size/2} 0.035 0.02" rpy="0 0 0"/>
     </joint>
 
     <link name="right_eye">
         <visual>
-            <geometry><sphere radius="0.018"/></geometry>
-            <material name="dora_white"/>
+            <geometry><sphere radius="0.015"/></geometry>
+            <material name="white"/>
         </visual>
     </link>
     <joint name="right_eye_joint" type="fixed">
         <parent link="head"/>
         <child link="right_eye"/>
-        <origin xyz="${head_size/2 + 0.005} -0.035 0.035" rpy="0 0 0"/>
+        <origin xyz="${head_size/2} -0.035 0.02" rpy="0 0 0"/>
     </joint>
-    <gazebo reference="left_eye"><material>Gazebo/White</material></gazebo>
-    <gazebo reference="right_eye"><material>Gazebo/White</material></gazebo>
+    <gazebo reference="left_eye"><material>Gazebo/Red</material></gazebo>
+    <gazebo reference="right_eye"><material>Gazebo/Red</material></gazebo>
 
-    <link name="bell">
+    <link name="mouth">
         <visual>
-            <geometry><sphere radius="0.025"/></geometry>
-            <material name="dora_yellow"/>
+            <geometry><box size="0.005 0.06 0.02"/></geometry>
+            <material name="red"/>
         </visual>
     </link>
-    <joint name="bell_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="bell"/>
-        <origin xyz="${torso_len/2 - 0.02} 0 ${torso_height/2 - 0.02}" rpy="0 0 0"/>
+    <joint name="mouth_joint" type="fixed">
+        <parent link="head"/>
+        <child link="mouth"/>
+        <origin xyz="${head_size/2} 0 -0.04" rpy="0 0 0"/>
     </joint>
-    <gazebo reference="bell"><material>Gazebo/Gold</material></gazebo>
+    <gazebo reference="mouth"><material>Gazebo/White</material></gazebo>
 
     <xacro:macro name="cat_ear" params="prefix y_pos">
         <link name="${prefix}_ear">
             <visual>
                 <geometry><cylinder radius="0.02" length="0.08"/></geometry>
-                <material name="dora_blue"/>
+                <material name="blue"/>
             </visual>
         </link>
         <joint name="${prefix}_ear_joint" type="fixed">
@@ -164,25 +126,25 @@
             <child link="${prefix}_ear"/>
             <origin xyz="0 ${y_pos} ${head_size/2 + 0.04}" rpy="0 0.2 ${y_pos*2}"/> 
         </joint>
-        <gazebo reference="${prefix}_ear"><material>Gazebo/SkyBlue</material></gazebo>
+        <gazebo reference="${prefix}_ear"><material>Gazebo/Blue</material></gazebo>
     </xacro:macro>
     <xacro:cat_ear prefix="left" y_pos="0.05"/>
     <xacro:cat_ear prefix="right" y_pos="-0.05"/>
 
     <link name="tail">
         <visual>
-            <origin xyz="0.05 0 0" rpy="0 0 0"/>
-            <geometry><sphere radius="0.03"/></geometry>
-            <material name="dora_red"/>
+            <origin xyz="0.15 0 0" rpy="0 1.57 0"/>
+            <geometry><cylinder radius="0.02" length="0.3"/></geometry>
+            <material name="red"/>
         </visual>
-        <xacro:sphere_inertia m="0.1" r="0.03"/>
+        <xacro:cylinder_inertia m="0.2" r="0.02" h="0.3"/>
     </link>
     <joint name="tail_joint" type="fixed">
         <parent link="base_link"/>
         <child link="tail"/>
-        <origin xyz="-${torso_len/2} 0 ${torso_height/2}" rpy="0 0 0"/> 
+        <origin xyz="-${torso_len/2} 0 ${torso_height/2}" rpy="0 -0.5 0"/> 
     </joint>
-    <gazebo reference="tail"><material>Gazebo/Red</material></gazebo>
+    <gazebo reference="tail"><material>Gazebo/red</material></gazebo>
 
     <xacro:macro name="wheel" params="prefix y_pos">
         <link name="${prefix}_wheel">
@@ -204,7 +166,7 @@
             <origin xyz="-0.1 ${y_pos} -0.05" rpy="0 0 0"/>
             <axis xyz="0 1 0"/>
         </joint>
-        <gazebo reference="${prefix}_wheel"><material>Gazebo/Grey</material></gazebo>
+        <gazebo reference="${prefix}_wheel"><material>Gazebo/silver</material></gazebo>
     </xacro:macro>
 
     <xacro:wheel prefix="left" y_pos="0.13"/>
@@ -221,12 +183,12 @@
         <child link="caster_leg"/>
         <origin xyz="0.25 0 -0.05" rpy="0 0 0"/>
     </joint>
-    <gazebo reference="caster_leg"><material>Gazebo/Grey</material></gazebo>
+    <gazebo reference="caster_leg"><material>Gazebo/silver</material></gazebo>
 
     <link name="front_caster">
         <visual>
             <geometry><sphere radius="${caster_radius}"/></geometry>
-            <material name="white"/>
+            <material name="blue"/>
         </visual>
         <collision>
             <geometry><sphere radius="${caster_radius}"/></geometry>
@@ -239,7 +201,11 @@
         <child link="front_caster"/>
         <origin xyz="0 0 -0.04" rpy="0 0 0"/>
     </joint>
-    <gazebo reference="front_caster"><material>Gazebo/White</material></gazebo>
+
+    <gazebo reference="front_caster">
+        <mu1>0.001</mu1> <mu2>0.001</mu2>
+        <material>Gazebo/Blue</material>
+    </gazebo>
 
     <link name="lidar_stand">
         <visual>
@@ -282,7 +248,7 @@
             <always_on>true</always_on>
             <visualize>true</visualize>
             <update_rate>40</update_rate>
-            <topic>cat/scan</topic>
+            <topic>scan</topic>
             <ray>
                 <scan>
                     <horizontal>
@@ -314,7 +280,7 @@
     <joint name="camera_joint" type="fixed">
         <parent link="head"/>
         <child link="camera_link"/>
-        <origin xyz="${head_size/2 + 0.005} 0 0.06" rpy="0 0 0"/>
+        <origin xyz="${head_size/2} 0 0" rpy="0 0 0"/>
     </joint>
 
     <gazebo reference="camera_link">
@@ -333,7 +299,7 @@
             <always_on>1</always_on>
             <update_rate>30</update_rate>
             <visualize>true</visualize>
-            <topic>cat/camera/image_raw</topic>
+            <topic>camera/image_raw</topic>
         </sensor>
     </gazebo>
 
@@ -352,7 +318,7 @@
         <sensor name="imu" type="imu">
             <always_on>true</always_on>
             <update_rate>100</update_rate>
-            <topic>cat/imu</topic>
+            <topic>imu</topic>
         </sensor>
     </gazebo>
 
@@ -365,12 +331,9 @@
             <wheel_separation>0.26</wheel_separation>
             <wheel_radius>${wheel_radius}</wheel_radius>
             <odom_publish_frequency>50</odom_publish_frequency>
-            
-            <topic>cat/cmd_vel</topic>
-            <odom_topic>cat/odom</odom_topic>
-            <frame_id>cat/odom</frame_id> 
-            <child_frame_id>base_link</child_frame_id>
-
+            <topic>cmd_vel</topic>
+            <odom_topic>odom</odom_topic>
+            <frame_id>odom</frame_id>
         </plugin>
     </gazebo>
 
