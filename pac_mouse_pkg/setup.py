@@ -23,7 +23,7 @@ data_files=[
 
         # 5. Install Config Files (ADD THIS LINE HERE!)
         (os.path.join('share', package_name, 'config'), glob('config/*')),
-    ],
+    ]
 
 for root, dirs, files in os.walk('models'):
     if files:
@@ -38,7 +38,7 @@ setup(
     name=package_name,
     version='0.0.0',
     packages=find_packages(exclude=['test']),
-    
+    data_files=data_files,
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='giginu',
