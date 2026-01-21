@@ -21,10 +21,7 @@ class MouseBrain(Node):
         # List of Cheese Locations (x, y, name)
         # You must update these coordinates to match where you put them in Gazebo!
         self.cheeses = [
-            {'x': 2.0, 'y': 2.0, 'name': 'cheese_0'},
-            {'x': -2.0, 'y': 2.0, 'name': 'cheese_1'},
-            {'x': 2.0, 'y': -2.0, 'name': 'cheese_2'},
-            {'x': -2.0, 'y': -2.0, 'name': 'cheese_3'}
+            {'x': 5.5, 'y': 5.5, 'name': 'cheese_0'}
         ]
         
         self.mouse_pose = None
@@ -132,7 +129,7 @@ class MouseBrain(Node):
         # (Same logic as Cat Brain)
         repulse_x, repulse_y = 0.0, 0.0
         for i, r in enumerate(self.lidar_ranges):
-            if r < 0.6 and r > 0.05:
+            if r < 0.3 and r > 0.05:
                 angle = self.angle_min + (i * self.angle_increment)
                 force = 1.0 / (r * r)
                 push_angle = mouse_yaw + angle + math.pi
