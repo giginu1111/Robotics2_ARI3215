@@ -180,3 +180,47 @@ waypoint_follower:
       plugin: "nav2_waypoint_follower::WaitAtWaypoint"
       enabled: True
       waypoint_pause_duration: 200
+
+# ==========================================================
+# ADD THESE SECTIONS TO THE END OF YOUR nav2_params.yaml
+# ==========================================================
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: True
+    smoothing_frequency: 20.0
+    scale_velocities: False
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.26, 0.0, 1.0]
+    min_velocity: [-0.26, 0.0, -1.0]
+    max_accel: [2.5, 0.0, 3.2]
+    max_decel: [-2.5, 0.0, -3.2]
+    odom_topic: "mouse/odom"
+    robot_frame: "mouse/base_link"
+
+collision_monitor:
+  ros__parameters:
+    use_sim_time: True
+    base_frame_id: "mouse/base_link"
+    odom_frame_id: "mouse/odom"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
+    cmd_vel_out_topic: "/mouse/cmd_vel"
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 0.2
+    source_timeout: 1.0
+    base_shift_correction: True
+    stop_pub_count: 20
+    # THIS IS THE MISSING PARAMETER THAT CAUSED THE ERROR:
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "/mouse/scan"
+    polygons: ["PolygonStop"]
+    PolygonStop:
+      type: "polygon"
+      # A small box around the mouse (approx 20cm x 20cm)
+      points: [0.1, 0.1, 0.1, -0.1, -0.1, -0.1, -0.1, 0.1]
+      action_type: "stop"
+      min_points: 4
+      visualize: True
+      polygon_pub_topic: "polygon_stop"
