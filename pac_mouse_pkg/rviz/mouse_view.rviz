@@ -10,7 +10,8 @@ Panels:
         - /Cat Model1
         - /Mouse Laser1
         - /Cat Laser1
-        - /Cat Camera1
+        - /Mouse Image1
+        - /Cat Image1
       Splitter Ratio: 0.5
     Tree Height: 557
   - Class: rviz_common/Views
@@ -29,74 +30,51 @@ Visualization Manager:
       Name: Grid
       Value: true
       
-    # --- MOUSE ROBOT MODEL (UPDATED TOPIC) ---
+    # --- MOUSE ROBOT MODEL ---
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Description Topic:
         Durability Policy: Transient Local
-        Value: /mouse/robot_description   # <--- CHANGED FROM /robot_description
+        Value: /mouse/robot_description   # CORRECT: Points to mouse namespace
       Enabled: true
       Name: Mouse Model
       Value: true
 
-    # --- CAT ROBOT MODEL (NEW) ---
+    # --- CAT ROBOT MODEL ---
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Description Topic:
         Durability Policy: Transient Local
-        Value: /cat/robot_description     # <--- NEW TOPIC
+        Value: /cat/robot_description     # CORRECT: Points to cat namespace
       Enabled: true
       Name: Cat Model
       Value: true
 
-    # --- VISUALIZATION MARKERS ---
-    - Class: rviz_default_plugins/MarkerArray
+    # --- TF FRAMES (Added for debugging) ---
+    - Class: rviz_default_plugins/TF
       Enabled: true
-      Name: Brain (Markers)
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_array
-      Value: true
-
-    # --- MOUSE INTERNAL MAP ---
-    - Alpha: 0.7
-      Class: rviz_default_plugins/Map
-      Color Scheme: costmap
-      Draw Behind: false
-      Enabled: true
-      Name: Mouse Internal Map
-      Topic:
-        Depth: 1
-        Durability Policy: Transient Local
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /mouse_map
-      Update Topic:
-        Depth: 1
-        Durability Policy: Transient Local
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /mouse_map_updates
+      Name: TF
+      Marker Scale: 0.3
+      Show Arrows: true
+      Show Axes: true
+      Show Names: false
       Value: true
 
     # --- SLAM MAP ---
-    - Alpha: 0.3
+    - Alpha: 0.7
       Class: rviz_default_plugins/Map
       Color Scheme: map
       Draw Behind: true
       Enabled: true
-      Name: SLAM Map (Reference)
+      Name: Map
       Topic:
-        Depth: 5
+        Depth: 1
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /map
       Update Topic:
-        Depth: 5
+        Depth: 1
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
@@ -108,23 +86,27 @@ Visualization Manager:
       Class: rviz_default_plugins/LaserScan
       Color: 255; 25; 0
       Name: Mouse Laser
-      Size (m): 0.1
-      Topic:
-        Value: /scan
-      Use Fixed Frame: true
-      Value: true
-
-    # --- CAT LASER (NEW) ---
-    - Alpha: 1
-      Class: rviz_default_plugins/LaserScan
-      Color: 0; 255; 255
-      Name: Cat Laser
-      Size (m): 0.1
+      Size (m): 0.05
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
-        Reliability Policy: Best Effort  # <--- CRITICAL FOR GAZEBO
+        Reliability Policy: Best Effort
+        Value: /mouse/scan             # <--- UPDATED: Was /scan
+      Use Fixed Frame: true
+      Value: true
+
+    # --- CAT LASER ---
+    - Alpha: 1
+      Class: rviz_default_plugins/LaserScan
+      Color: 0; 255; 255
+      Name: Cat Laser
+      Size (m): 0.05
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort  # Essential for Gazebo bridge
         Value: /cat/scan
       Use Fixed Frame: true
       Value: true
@@ -142,10 +124,10 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /camera/image_raw
+        Value: /mouse/camera/image_raw  # <--- UPDATED: Was /camera/image_raw
       Value: true
 
-    # --- CAT CAMERA (NEW) ---
+    # --- CAT CAMERA ---
     - Class: rviz_default_plugins/Image
       Enabled: true
       Max Value: 1
@@ -164,13 +146,18 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: odom   # If using SLAM, you might want to switch this to 'map' later
+    # UPDATED: 'odom' implies global, but we are namespaced. 
+    # Use 'mouse/odom' (EKF output) or 'map' (SLAM output).
+    Fixed Frame: mouse/odom   
     Frame Rate: 30
   Name: root
   Tools:
     - Class: rviz_default_plugins/Interact
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
   Value: true
   Views:
     Current:

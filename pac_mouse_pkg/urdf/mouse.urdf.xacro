@@ -1,5 +1,7 @@
 <?xml version="1.0"?>
-<robot name="squeak_mouse" xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot name="mouse" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:arg name="robot_name" default="mouse"/>
 
     <xacro:property name="body_len" value="0.15"/>
     <xacro:property name="body_width" value="0.10"/>
@@ -10,14 +12,9 @@
     <xacro:property name="wheel_width" value="0.01"/>
     <xacro:property name="wheel_mass" value="0.1"/>
 
-    <material name="grey">
-        <color rgba="0.5 0.5 0.5 1"/>
-    </material>
-    <material name="pink">
-        <color rgba="1 0.6 0.6 1"/> </material>
-    <material name="black">
-        <color rgba="0 0 0 1"/>
-    </material>
+    <material name="grey"><color rgba="0.5 0.5 0.5 1"/></material>
+    <material name="pink"><color rgba="1 0.6 0.6 1"/></material>
+    <material name="black"><color rgba="0 0 0 1"/></material>
 
     <xacro:macro name="box_inertia" params="m x y z">
         <inertial>
@@ -46,7 +43,7 @@
         </inertial>
     </xacro:macro>
 
-    <link name="base_link">
+    <link name="$(arg robot_name)/base_link">
         <visual>
             <geometry><box size="${body_len} ${body_width} ${body_height}"/></geometry>
             <material name="grey"/>
@@ -57,12 +54,12 @@
         <xacro:box_inertia m="${body_mass}" x="${body_len}" y="${body_width}" z="${body_height}"/>
     </link>
     
-    <gazebo reference="base_link">
+    <gazebo reference="$(arg robot_name)/base_link">
         <material>Gazebo/Grey</material>
     </gazebo>
 
     <xacro:macro name="ear" params="prefix y_pos">
-        <link name="${prefix}_ear">
+        <link name="$(arg robot_name)/${prefix}_ear">
             <visual>
                 <origin xyz="0 0 0" rpy="1.5707 0 0"/>
                 <geometry><cylinder radius="0.03" length="0.005"/></geometry>
@@ -71,13 +68,13 @@
             <xacro:cylinder_inertia m="0.05" r="0.03" h="0.005"/>
         </link>
 
-        <joint name="${prefix}_ear_joint" type="fixed">
-            <parent link="base_link"/>
-            <child link="${prefix}_ear"/>
+        <joint name="$(arg robot_name)/${prefix}_ear_joint" type="fixed">
+            <parent link="$(arg robot_name)/base_link"/>
+            <child link="$(arg robot_name)/${prefix}_ear"/>
             <origin xyz="0.04 ${y_pos} ${body_height/2 + 0.02}" rpy="0 0 0"/>
         </joint>
         
-        <gazebo reference="${prefix}_ear">
+        <gazebo reference="$(arg robot_name)/${prefix}_ear">
             <material>Gazebo/RedBright</material>
         </gazebo>
     </xacro:macro>
@@ -85,7 +82,7 @@
     <xacro:ear prefix="left" y_pos="0.04"/>
     <xacro:ear prefix="right" y_pos="-0.04"/>
 
-    <link name="tail">
+    <link name="$(arg robot_name)/tail">
         <visual>
             <origin xyz="-0.06 0 0" rpy="0 1.57 0"/> <geometry><cylinder radius="0.005" length="0.12"/></geometry>
             <material name="pink"/>
@@ -93,13 +90,14 @@
         <xacro:cylinder_inertia m="0.05" r="0.005" h="0.12"/>
     </link>
     
-    <joint name="tail_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="tail"/>
-        <origin xyz="-${body_len/2} 0 0" rpy="0 0 0.2"/> </joint>
+    <joint name="$(arg robot_name)/tail_joint" type="fixed">
+        <parent link="$(arg robot_name)/base_link"/>
+        <child link="$(arg robot_name)/tail"/>
+        <origin xyz="-${body_len/2} 0 0" rpy="0 0 0.2"/> 
+    </joint>
 
     <xacro:macro name="wheel" params="prefix y_pos">
-        <link name="${prefix}_wheel">
+        <link name="$(arg robot_name)/${prefix}_wheel">
             <visual>
                 <origin xyz="0 0 0" rpy="1.5707 0 0"/>
                 <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
@@ -112,13 +110,13 @@
             <xacro:cylinder_inertia m="${wheel_mass}" r="${wheel_radius}" h="${wheel_width}"/>
         </link>
 
-        <joint name="${prefix}_wheel_joint" type="continuous">
-            <parent link="base_link"/>
-            <child link="${prefix}_wheel"/>
+        <joint name="$(arg robot_name)/${prefix}_wheel_joint" type="continuous">
+            <parent link="$(arg robot_name)/base_link"/>
+            <child link="$(arg robot_name)/${prefix}_wheel"/>
             <origin xyz="0.03 ${y_pos} -0.02" rpy="0 0 0"/> <axis xyz="0 1 0"/>
         </joint>
         
-        <gazebo reference="${prefix}_wheel">
+        <gazebo reference="$(arg robot_name)/${prefix}_wheel">
             <material>Gazebo/Black</material>
         </gazebo>
     </xacro:macro>
@@ -126,7 +124,7 @@
     <xacro:wheel prefix="left" y_pos="0.06"/>
     <xacro:wheel prefix="right" y_pos="-0.06"/>
 
-    <link name="caster_wheel">
+    <link name="$(arg robot_name)/caster_wheel">
         <visual>
             <geometry><sphere radius="${wheel_radius/2}"/></geometry>
             <material name="black"/>
@@ -137,18 +135,19 @@
         <xacro:sphere_inertia m="0.05" r="${wheel_radius/2}"/>
     </link>
 
-    <joint name="caster_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="caster_wheel"/>
+    <joint name="$(arg robot_name)/caster_joint" type="fixed">
+        <parent link="$(arg robot_name)/base_link"/>
+        <child link="$(arg robot_name)/caster_wheel"/>
         <origin xyz="-0.06 0 -0.035" rpy="0 0 0"/>
     </joint>
 
-    <gazebo reference="caster_wheel">
+    <gazebo reference="$(arg robot_name)/caster_wheel">
         <mu1>0.001</mu1>
         <mu2>0.001</mu2>
         <material>Gazebo/Black</material>
     </gazebo>
-	<link name="lidar_link">
+
+    <link name="$(arg robot_name)/lidar_link">
         <visual>
             <geometry><cylinder radius="0.035" length="0.02"/></geometry>
             <material name="black"/>
@@ -159,20 +158,20 @@
         <xacro:cylinder_inertia m="0.1" r="0.035" h="0.02"/>
     </link>
 
-    <joint name="lidar_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="lidar_link"/>
+    <joint name="$(arg robot_name)/lidar_joint" type="fixed">
+        <parent link="$(arg robot_name)/base_link"/>
+        <child link="$(arg robot_name)/lidar_link"/>
         <origin xyz="0 0 ${body_height/2 + 0.01}" rpy="0 0 0"/>
     </joint>
 
-    <gazebo reference="lidar_link">
+    <gazebo reference="$(arg robot_name)/lidar_link">
         <sensor name="lidar" type="gpu_lidar">
-			<frame_id>lidar_link</frame_id>
+            <frame_id>$(arg robot_name)/lidar_link</frame_id>
             <pose>0 0 0 0 0 0</pose>
             <always_on>true</always_on>
             <visualize>true</visualize>
             <update_rate>40</update_rate>
-            <topic>scan</topic>
+            <topic>/model/$(arg robot_name)/scan</topic>
             <ray>
                 <scan>
                     <horizontal>
@@ -189,8 +188,8 @@
         </sensor>
         <material>Gazebo/Black</material>
     </gazebo>
-	
-	<link name="camera_link">
+    
+    <link name="$(arg robot_name)/camera_link">
         <visual>
             <geometry><box size="0.01 0.03 0.03"/></geometry>
             <material name="black"/>
@@ -201,13 +200,13 @@
         <xacro:box_inertia m="0.05" x="0.01" y="0.03" z="0.03"/>
     </link>
 
-    <joint name="camera_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="camera_link"/>
+    <joint name="$(arg robot_name)/camera_joint" type="fixed">
+        <parent link="$(arg robot_name)/base_link"/>
+        <child link="$(arg robot_name)/camera_link"/>
         <origin xyz="${body_len/2} 0 0" rpy="0 0 0"/>
     </joint>
 
-    <gazebo reference="camera_link">
+    <gazebo reference="$(arg robot_name)/camera_link">
         <sensor name="camera" type="camera">
             <camera>
                 <horizontal_fov>1.047</horizontal_fov>
@@ -223,43 +222,46 @@
             <always_on>1</always_on>
             <update_rate>30</update_rate>
             <visualize>true</visualize>
-            <topic>camera/image_raw</topic>
+            <topic>/model/$(arg robot_name)/camera/image_raw</topic>
         </sensor>
     </gazebo>
-	
-	<link name="imu_link">
+    
+    <link name="$(arg robot_name)/imu_link">
         <visual><geometry><box size="0.01 0.01 0.01"/></geometry></visual>
         <xacro:box_inertia m="0.01" x="0.01" y="0.01" z="0.01"/>
     </link>
 
-    <joint name="imu_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="imu_link"/>
+    <joint name="$(arg robot_name)/imu_joint" type="fixed">
+        <parent link="$(arg robot_name)/base_link"/>
+        <child link="$(arg robot_name)/imu_link"/>
         <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
 
-    <gazebo reference="imu_link">
+    <gazebo reference="$(arg robot_name)/imu_link">
         <sensor name="imu" type="imu">
             <always_on>true</always_on>
             <update_rate>100</update_rate>
-            <topic>imu</topic>
+            <topic>/model/$(arg robot_name)/imu</topic>
         </sensor>
     </gazebo>
 
-	<gazebo>
+    <gazebo>
         <plugin
             filename="gz-sim-diff-drive-system"
             name="gz::sim::systems::DiffDrive">
-            <left_joint>left_wheel_joint</left_joint>
-            <right_joint>right_wheel_joint</right_joint>
+            <left_joint>$(arg robot_name)/left_wheel_joint</left_joint>
+            <right_joint>$(arg robot_name)/right_wheel_joint</right_joint>
             <wheel_separation>0.12</wheel_separation>
             <wheel_radius>${wheel_radius}</wheel_radius>
             <odom_publish_frequency>50</odom_publish_frequency>
-            <topic>cmd_vel</topic>
-            <odom_topic>odom</odom_topic>
+            
+            <topic>/model/$(arg robot_name)/cmd_vel</topic>
+            <odom_topic>/model/$(arg robot_name)/odometry</odom_topic>
+            <tf_topic>/model/$(arg robot_name)/tf</tf_topic>
+            
             <frame_id>odom</frame_id>
+            <child_frame_id>$(arg robot_name)/base_link</child_frame_id>
         </plugin>
     </gazebo>
-
 
 </robot>

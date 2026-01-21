@@ -1,10 +1,10 @@
 slam_toolbox:
   ros__parameters:
-    # 1. CORE ROS FRAMES
-    odom_frame: odom
-    map_frame: map
-    base_frame: base_link
-    scan_topic: /scan
+    # 1. CORE ROS FRAMES (UPDATED FOR NAMESPACE)
+    odom_frame: mouse/odom          # <--- Was 'odom'
+    map_frame: map                  # Keep 'map' so it generates the global map
+    base_frame: mouse/base_link     # <--- Was 'base_link'
+    scan_topic: /mouse/scan         # <--- Was '/scan'
     mode: mapping 
 
     # 2. SOLVER (The Math)
@@ -18,7 +18,7 @@ slam_toolbox:
     # 3. PERFORMANCE TUNING
     debug_logging: false
     throttle_scans: 1
-    transform_publish_period: 0.02 # Publish map location 20 times a second
+    transform_publish_period: 0.02
     map_update_interval: 0.5
     resolution: 0.05
     max_laser_range: 8.0 
@@ -28,7 +28,7 @@ slam_toolbox:
     stack_size_to_use: 40000000 
     enable_interactive_mode: true
     
-    # 4. MATCHING (How to snap scans to walls)
+    # 4. MATCHING
     use_scan_matching: true
     use_scan_barycenter: true
     minimum_travel_distance: 0.1
