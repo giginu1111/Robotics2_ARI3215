@@ -6,9 +6,9 @@ from sensor_msgs.msg import LaserScan  # NEW: We need to see!
 from transforms3d.euler import quat2euler
 import math
 
-class CatBrainSafe(Node):
+class CatBrain(Node):
     def __init__(self):
-        super().__init__('cat_brain_safe')
+        super().__init__('cat_brain')
 
         # 1. DATA INPUTS
         self.sub_cat = self.create_subscription(Odometry, '/model/cat/odometry', self.update_cat_pose, 10)
@@ -112,7 +112,7 @@ class CatBrainSafe(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = CatBrainSafe()
+    node = CatBrain()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
