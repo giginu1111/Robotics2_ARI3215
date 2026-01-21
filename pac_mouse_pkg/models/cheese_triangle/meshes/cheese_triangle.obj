@@ -1,6 +1,6 @@
 # Blender 5.0.1
 # www.blender.org
-mtllib cheesetriangle_v3.1_Cycles.mtl
+mtllib cheese_triangle.mtl
 o poct_cheese_body
 v -0.069481 0.000095 0.038869
 v -0.047671 0.000054 0.038913
