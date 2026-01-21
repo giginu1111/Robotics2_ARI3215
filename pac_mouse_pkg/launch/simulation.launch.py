@@ -216,9 +216,8 @@ def generate_launch_description():
         period=5.0, 
         actions=[
             # --- MOUSE NODES ---
-            node_robot_state_publisher, 
-            node_joint_state_publisher, 
-            node_tf_lidar, 
+            node_mouse_state_publisher,
+            node_mouse_joint_state_publisher,
             node_tf_base, 
             node_ekf,
 
