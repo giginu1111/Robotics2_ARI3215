@@ -211,7 +211,7 @@ def generate_launch_description():
             'base_frame': 'mouse/base_link',
             'odom_frame': 'mouse/odom',
             'map_frame': 'map',
-            'scan_topic': '/model/mouse/scan'
+            'scan_topic': '/mouse/scan'
         }]
     )
 
@@ -224,9 +224,9 @@ def generate_launch_description():
             rviz,
             fix_mouse_lidar,
             fix_cat_lidar,
+            slam_toolbox,
             tf_map_mouse,
-            tf_map_cat,
-            slam_toolbox
+            tf_map_cat
         ]
     )
 
