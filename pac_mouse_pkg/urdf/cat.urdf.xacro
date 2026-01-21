@@ -20,6 +20,7 @@
     <material name="dora_yellow"><color rgba="1 0.8 0.1 1"/></material>
     <material name="black"><color rgba="0 0 0 1"/></material>
     <material name="silver"><color rgba="0.75 0.75 0.75 1"/></material>
+    <material name="white"><color rgba="1 1 1 1"/></material>
 
     <xacro:macro name="box_inertia" params="m x y z">
         <inertial>

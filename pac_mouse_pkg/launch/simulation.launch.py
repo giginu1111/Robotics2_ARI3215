@@ -161,10 +161,25 @@ def generate_launch_description():
                 'world_frame': 'mouse/odom',
                 'odom0': '/mouse/odom',
                 'imu0': '/mouse/imu',
-                'publish_tf': False 
+                'publish_tf': True 
             }
         ]
     )
+    # ========================================================================
+    # 9. STATIC TF FIXES (THE "GHOST FRAME" BUSTERS)
+    # ========================================================================
+    
+    # Connect "mouse/base_link" -> "mouse/mouse/base_link/lidar"
+    # Offset: 0.05 0 0.04 (matches URDF)
+    fix_mouse_lidar = Node(package='tf2_ros', executable='static_transform_publisher',
+        arguments=['0.05', '0', '0.04', '0', '0', '0', 'mouse/base_link', 'mouse/mouse/base_link/lidar'],
+        output='screen')
+
+    # Connect "cat/base_link" -> "cat/cat/base_link/lidar"
+    # Offset: 0.05 0 0.10 (matches URDF)
+    fix_cat_lidar = Node(package='tf2_ros', executable='static_transform_publisher',
+        arguments=['0.05', '0', '0.10', '0', '0', '0', 'cat/base_link', 'cat/cat/base_link/lidar'],
+        output='screen')
 
     # 8. RVIZ
     rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
@@ -182,7 +197,9 @@ def generate_launch_description():
         period=5.0, 
         actions=[
             mouse_ekf,
-            rviz
+            rviz,
+            fix_mouse_lidar,
+            fix_cat_lidar
         ]
     )
 
