@@ -95,42 +95,46 @@ def generate_launch_description():
         output='screen'
     )
 
-    # 4. ROBOT STATE PUBLISHER (MOUSE)
-    node_robot_state_publisher = Node(
+    # --- MOUSE PUBLISHERS (Namespace: 'mouse') ---
+    node_mouse_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
-        name='mouse_state_publisher', # Rename for clarity
+        name='mouse_state_publisher',
+        namespace='mouse', # <--- Critical
         output='screen',
-        parameters=[{
-            'robot_description': mouse_desc_xml,
-            'use_sim_time': True 
-        }],
-        # Remap to a namespace so RViz distinguishes them
-        namespace='mouse' 
+        parameters=[{'robot_description': mouse_desc_xml, 'use_sim_time': True}]
     )
 
-    # 4.5 ROBOT STATE PUBLISHER (CAT)
+    node_mouse_joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='mouse_joint_state_publisher',
+        namespace='mouse', # <--- Critical: Must match RSP
+        parameters=[{'robot_description': mouse_desc_xml, 'use_sim_time': True}]
+    )
+
+    # --- CAT PUBLISHERS (Namespace: 'cat') ---
     node_cat_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='cat_state_publisher',
+        namespace='cat', # <--- Critical
         output='screen',
         parameters=[{
-            'robot_description': cat_desc_xml,
+            'robot_description': cat_desc_xml, 
             'use_sim_time': True,
-            'frame_prefix': 'doraemon/' # Optional: prefixes TF frames if needed
-        }],
-        namespace='cat'
+            'frame_prefix': 'doraemon/' # <--- Ensures unique TF frames
+        }]
     )
 
-    # 5. JOINT STATE PUBLISHER
-    node_joint_state_publisher = Node(
+    node_cat_joint_state_publisher = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
-        namespace='mouse',
+        name='cat_joint_state_publisher',
+        namespace='cat', # <--- Critical: Must match RSP
         parameters=[{
-            'use_sim_time': True,
-            'robot_description': mouse_desc_xml # <--- ENSURE THIS IS HERE
+            'robot_description': cat_desc_xml, # <--- Must have XML to know about wheels
+            'use_sim_time': True
         }]
     )
 
@@ -154,20 +158,6 @@ def generate_launch_description():
     )
 
     # 6.5 CAT INFRASTRUCTURE (Joints & TFs)
-    
-    # A. Joint State Publisher (Keeps the wheels attached to the body)
-    node_cat_joint_state_publisher = Node(
-        package='joint_state_publisher',
-        executable='joint_state_publisher',
-        name='cat_joint_state_publisher',
-        namespace='cat', # Must match the namespace of the state publisher
-        parameters=[{
-            'use_sim_time': True,
-            'robot_description': cat_desc_xml  # <--- CRITICAL MISSING LINE
-        }]
-    )
-
-
     # C. TF: Connect the Camera Data (Optional but good)
     node_cat_tf_camera = Node(
         package='tf2_ros',
