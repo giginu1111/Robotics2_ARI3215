@@ -62,6 +62,7 @@ class GameMaster(Node):
         self.game_active = False
         self.get_logger().error(f"GAME OVER! Cat caught Mouse at {distance:.2f}m")
         self.force_stop()
+        self.delete_mouse()
 
     def victory_mouse(self):
         self.game_active = False
@@ -84,6 +85,21 @@ class GameMaster(Node):
             
         except Exception as e:
             self.get_logger().error(f"Failed to delete cat: {e}")
+
+    def delete_mouse(self):
+        cmd = [
+            "gz", "service", "-s", f"/world/{self.world_name}/remove",
+            "--reqtype", "gz.msgs.Entity",
+            "--reptype", "gz.msgs.Boolean",
+            "--timeout", "1000",
+            "--req", 'name: "mouse" type: MODEL'
+        ]
+        
+        try:
+            subprocess.run(cmd, capture_output=True)
+            self.get_logger().error(">>> MOUSE ELIMINATED. GAME OVER. <<<")
+        except Exception as e:
+            self.get_logger().error(f"Failed to delete mouse: {e}")
 
     def force_stop(self):
         stop = Twist()
