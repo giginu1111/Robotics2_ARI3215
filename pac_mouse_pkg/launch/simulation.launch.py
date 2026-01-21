@@ -180,7 +180,17 @@ def generate_launch_description():
     fix_cat_lidar = Node(package='tf2_ros', executable='static_transform_publisher',
         arguments=['0.05', '0', '0.10', '0', '0', '0', 'cat/base_link', 'cat/cat/base_link/lidar'],
         output='screen')
+    
+    # A. Place Mouse Odom at (-3, -3) relative to Map
+    tf_map_mouse = Node(package='tf2_ros', executable='static_transform_publisher',
+        arguments=['-3.0', '-3.0', '0', '0', '0', '0', 'map', 'mouse/odom'],
+        output='screen')
 
+    # B. Place Cat Odom at (3, 3) relative to Map
+    tf_map_cat = Node(package='tf2_ros', executable='static_transform_publisher',
+        arguments=['3.0', '3.0', '0', '0', '0', '0', 'map', 'cat/odom'],
+        output='screen')
+    
     # 8. RVIZ
     rviz_config_file = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
     rviz = Node(
