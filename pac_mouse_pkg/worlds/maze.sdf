@@ -31,6 +31,7 @@
                 </visual>
             </link>
         </model>
+        
         <model name="wall_n"><static>true</static><link name="l"><pose>0 7 0.5 0 0 0</pose><collision name="c"><geometry><box><size>14.3 0.15 1</size></box></geometry></collision><visual name="v"><geometry><box><size>14.3 0.15 1</size></box></geometry></visual></link></model>
         <model name="wall_s"><static>true</static><link name="l"><pose>0 -7 0.5 0 0 0</pose><collision name="c"><geometry><box><size>14.3 0.15 1</size></box></geometry></collision><visual name="v"><geometry><box><size>14.3 0.15 1</size></box></geometry></visual></link></model>
         <model name="wall_e"><static>true</static><link name="l"><pose>7 0 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 14.3 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 14.3 1</size></box></geometry></visual></link></model>
@@ -60,6 +61,23 @@
         <model name="side_r1"><static>true</static><link name="l"><pose>4.6 1.8 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 2.2 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 2.2 1</size></box></geometry></visual></link></model>
         <model name="side_r2"><static>true</static><link name="l"><pose>4.0 -1.8 0.5 0 0 0</pose><collision name="c"><geometry><box><size>0.15 2.2 1</size></box></geometry></collision><visual name="v"><geometry><box><size>0.15 2.2 1</size></box></geometry></visual></link></model>
 
+        <include>
+            <uri>model://cheese_triangle</uri>
+            <name>cheese_1</name>
+            <pose>5.5 5.5 0.05 0 0 0.78</pose>
+        </include>
+
+        <include>
+            <uri>model://cheese_triangle</uri>
+            <name>cheese_2</name>
+            <pose>-5.5 -5.5 0.05 0 0 2.3</pose>
+        </include>
+
+        <include>
+            <uri>model://cheese_triangle</uri>
+            <name>cheese_3</name>
+            <pose>0.0 6.0 0.05 0 0 0</pose>
+        </include>
 
     </world>
 </sdf>
