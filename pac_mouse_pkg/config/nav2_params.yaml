@@ -132,8 +132,8 @@ global_costmap:
       
       # THE FIX: Make it a huge rolling window so 'bounds' always exist
       rolling_window: true
-      width: 20.0
-      height: 20.0
+      width: 20
+      height: 20
       origin_x: -10.0
       origin_y: -10.0
       
