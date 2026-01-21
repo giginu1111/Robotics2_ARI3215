@@ -82,7 +82,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 10.0  # High factor = Danger zone drops off fast
-        inflation_radius: 0.25     # Small bubble
+        inflation_radius: 0.2     # Small bubble
 
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
@@ -144,8 +144,8 @@ global_costmap:
       # SHARP INFLATION (Prevents Ghost Walls)
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 10.0
-        inflation_radius: 0.25
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.5
 
 planner_server:
   ros__parameters:
