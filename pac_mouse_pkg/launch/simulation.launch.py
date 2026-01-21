@@ -3,9 +3,9 @@ import xacro
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction, AppendEnvironmentVariable
+from launch.actions import IncludeLaunchDescription, TimerAction, AppendEnvironmentVariable, GroupAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetRemap
 
 def generate_launch_description():
     # ========================================================================
@@ -150,18 +150,28 @@ def generate_launch_description():
             'use_sim_time': 'true'
         }.items()
     )
-    # 10. NAVIGATION 2 ( The "Smart" Driver )
-    # We use the default launch but tell it NOT to run AMCL (localization) or a Map Server
-    # because SLAM Toolbox is already doing that.
-    nav2_params = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
-    nav2_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(nav2_share, 'launch', 'navigation_launch.py')),
-        launch_arguments={
-            'use_sim_time': 'true',
-            'params_file': nav2_params,
-            'autostart': 'true'  # IMPORTANT: Automatically start the nodes
-        }.items()
-    )
+    # 8. NAVIGATION 2 (The Fix!)
+    # We define the list of nodes explicitly to EXCLUDE 'collision_monitor' and 'velocity_smoother'
+    nav_nodes_to_start = [
+        'controller_server', 'smoother_server', 'planner_server', 'behavior_server',
+        'bt_navigator', 'waypoint_follower', 'route_server', 'opennav_docking'
+    ]
+
+    nav2_launch_group = GroupAction([
+        # IMPORTANT: Remap the default internal topic 'cmd_vel_nav' directly to the robot's '/mouse/cmd_vel'
+        SetRemap(src='cmd_vel_nav', dst='/mouse/cmd_vel'),
+        
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(nav2_share, 'launch', 'navigation_launch.py')),
+            launch_arguments={
+                'use_sim_time': 'true',
+                'params_file': os.path.join(pkg_share, 'config', 'nav2_params.yaml'),
+                'autostart': 'true',
+                # This overrides the default list, removing the broken nodes
+                'lifecycle_nodes': str(nav_nodes_to_start) 
+            }.items()
+        )
+    ])
 
     # ========================================================================
     # 8. VISUALIZATION (RVIZ)
@@ -199,7 +209,7 @@ def generate_launch_description():
         period=7.0,
         actions=[
             game_master,
-            nav2_launch
+            nav2_launch_group
         ]
     )
 
