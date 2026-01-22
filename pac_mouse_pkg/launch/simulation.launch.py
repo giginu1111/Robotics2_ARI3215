@@ -3,7 +3,7 @@ import xacro
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction, AppendEnvironmentVariable, GroupAction
+from launch.actions import IncludeLaunchDescription, TimerAction, AppendEnvironmentVariable, GroupAction , ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node, SetRemap
 
@@ -13,6 +13,7 @@ def generate_launch_description():
     # ========================================================================
     pkg_share = get_package_share_directory('pac_mouse_pkg')
     nav2_params_file = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
+    cat_params_file = os.path.join(pkg_share, 'config', 'nav2_params_cat.yaml')
     slam_toolbox_share = get_package_share_directory('slam_toolbox')
     
     # Ensure Gazebo can find models/meshes
@@ -152,6 +153,7 @@ def generate_launch_description():
     )
     # 8. NAVIGATION (Manual Launch - Bypasses Collision Monitor Error)
     # We launch only the 4 essential nodes needed to drive.
+    # MOUSEEEE
     nav_nodes = []
     
     # A. Controller (The Driver)
@@ -188,6 +190,42 @@ def generate_launch_description():
                      'autostart': True, 
                      'node_names': ['controller_server', 'planner_server', 'behavior_server', 'bt_navigator']}]
     ))
+    # CATTT
+    # A. Controller (The Driver)
+    nav_nodes.append(Node(
+        package='nav2_controller', executable='controller_server',
+        name='controller_server_cat',
+        output='screen', parameters=[cat_params_file],
+        remappings=[('cmd_vel', '/cat/cmd_vel')] # WIRE DIRECTLY TO MOUSE
+    ))
+
+    # B. Planner (The Map Reader)
+    nav_nodes.append(Node(
+        package='nav2_planner', executable='planner_server',
+        name='planner_server_cat', output='screen', parameters=[cat_params_file]
+    ))
+
+    # C. Behaviors (Recovery actions like backing up)
+    nav_nodes.append(Node(
+        package='nav2_behaviors', executable='behavior_server',
+        name='behavior_server_cat', output='screen', parameters=[cat_params_file],
+        remappings=[('cmd_vel', '/cat/cmd_vel')]
+    ))
+
+    # D. BT Navigator (The Brain that coordinates them)
+    nav_nodes.append(Node(
+        package='nav2_bt_navigator', executable='bt_navigator',
+        name='bt_navigator_cat', output='screen', parameters=[cat_params_file]
+    ))
+
+    # E. Lifecycle Manager (Turns them all on)
+    nav_nodes.append(Node(
+        package='nav2_lifecycle_manager', executable='lifecycle_manager',
+        name='lifecycle_manager_navigation_cat', output='screen',
+        parameters=[{'use_sim_time': True, 
+                     'autostart': True, 
+                     'node_names': ['controller_server', 'planner_server', 'behavior_server', 'bt_navigator']}]
+    ))
 
     # ========================================================================
     # 8. VISUALIZATION (RVIZ)
@@ -198,26 +236,22 @@ def generate_launch_description():
         arguments=['-d', rviz_config],
         parameters=[{'use_sim_time': True}]
     )
-
-    # GAME MASTER (Referee)
-    game_master = Node(
-        package='pac_mouse_pkg',
-        executable='game_master',
-        name='game_master',
+    
+    # 1. Game Master in its own window
+    game_master_cmd = ExecuteProcess(
+        cmd=['terminator', '-T', 'Game Master', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'game_master'],
         output='screen'
     )
 
-    mouse_brain = Node(
-        package='pac_mouse_pkg',
-        executable='hybrid_explorer_mouse',
-        name='mouse_brain',
+    # 2. Mouse Brain in its own window
+    mouse_brain_cmd = ExecuteProcess(
+        cmd=['terminator', '-T', 'Mouse Brain', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'hybrid_explorer_mouse'],
         output='screen'
     )
 
-    cat_brain = Node(
-        package='pac_mouse_pkg',
-        executable='cat_brain',
-        name='cat_brain',
+    # 3. Cat Brain in its own window
+    cat_brain_cmd = ExecuteProcess(
+        cmd=['terminator', '-T', 'Cat Brain', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'cat_brain'],
         output='screen'
     )
 
@@ -256,9 +290,9 @@ def generate_launch_description():
     extra_extra_delayed_nodes = TimerAction(
         period=30.0,
         actions=[
-            game_master,
-            mouse_brain,
-            cat_brain
+            game_master_cmd,
+            mouse_brain_cmd,
+            cat_brain_cmd
         ]
     )
 

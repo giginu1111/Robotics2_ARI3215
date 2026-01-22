@@ -1,0 +1,256 @@
+amcl:
+  ros__parameters:
+    use_sim_time: True
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: True
+    global_frame: map
+    robot_base_frame: cat/base_link
+    odom_topic: /cat/odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["goal_checker"] 
+    controller_plugins: ["FollowPath"]
+
+    # Progress Checker: Stops robot if it gets stuck
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5
+      movement_time_allowance: 10.0
+    
+    # Goal Checker: Decides when we are "close enough"
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.50
+      yaw_goal_tolerance: 0.50
+      stateful: True
+
+    # --- FAST cat CONTROLLER (Regulated Pure Pursuit) ---
+    FollowPath:
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      desired_linear_vel: 0.8       # FASTER (0.8 m/s)
+      lookahead_dist: 0.6
+      min_lookahead_dist: 0.3
+      rotate_to_heading_lp_gain: 0.5
+      transform_tolerance: 0.1
+      use_velocity_scaled_lookahead_dist: false
+      min_approach_linear_velocity: 0.05
+      approach_velocity_scaling_dist: 0.6
+      
+      # Turning Logic: Snappy in-place turns
+      use_rotate_to_heading: true
+      rotate_to_heading_min_angle: 1.0
+      rotate_to_heading_angular_vel: 50.0 # FAST ROTATION (1.8 rad/s)
+      
+      # Safety
+      max_allowed_time_to_collision_up_to_carrot: 1.0
+      use_collision_detection: true
+      use_cost_regulated_linear_velocity_scaling: false
+      cost_scaling_dist: 0.3
+      cost_scaling_gain: 1.0
+      inflation_cost_scaling_factor: 3.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: cat/odom
+      robot_base_frame: cat/base_link
+      use_sim_time: True
+      rolling_window: true
+      width: 10
+      height: 10
+      origin_x: -5.0
+      origin_y: -5.0
+      resolution: 0.05
+      robot_radius: 0.10
+      plugins: ["voxel_layer", "inflation_layer"]
+      
+      # SHARP INFLATION (Prevents Ghost Walls)
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 15.0  # High factor = Danger zone drops off fast
+        inflation_radius: 0.15     # Small bubble
+
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: True
+        publish_voxel_map: True
+        origin_z: 0.0
+        z_resolution: 0.05
+        z_voxels: 16
+        max_obstacle_height: 2.0
+        mark_threshold: 0
+        observation_sources: scan
+        scan:
+          topic: /cat/scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          obstacle_max_range: 2.5
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: cat/base_link
+      use_sim_time: True
+      robot_radius: 0.15
+      resolution: 0.05
+      track_unknown_space: true
+      
+      # ROLLING WINDOW FIX (Prevents "Out of Bounds" errors)
+      rolling_window: true
+      width: 25     # INTEGER (Critical for preventing crashes)
+      height: 25    # INTEGER (Critical for preventing crashes)
+      origin_x: -10.0
+      origin_y: -10.0
+      
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /cat/scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          obstacle_max_range: 2.5
+          
+      # SHARP INFLATION (Prevents Ghost Walls)
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 10.0
+        inflation_radius: 0.5
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner::NavfnPlanner"
+      tolerance: 0.5
+      use_astar: false
+      allow_unknown: true   # ALLOWS PLANNING INTO THE DARK
+
+recoveries_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_padding: 0.03
+    robot_radius: 0.10
+    cycle_frequency: 10.0
+    recovery_plugins: ["spin", "backup", "wait"]
+    spin:
+      plugin: "nav2_recoveries/Spin"
+    backup:
+      plugin: "nav2_recoveries/BackUp"
+    wait:
+      plugin: "nav2_recoveries/Wait"
+
+waypoint_follower:
+  ros__parameters:
+    loop_rate: 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: True
+      waypoint_pause_duration: 50
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: True
+    smoothing_frequency: 20.0
+    scale_velocities: False
+    feedback: "OPEN_LOOP"
+    
+    # LOOSE BRAKES (Allows high speed and fast turns)
+    max_velocity: [1.0, 0.0, 10.0] 
+    min_velocity: [-1.0, 0.0, -10.0]
+    max_accel: [5.0, 0.0, 20.0]
+    max_decel: [-5.0, 0.0, -20.0]
+    
+    odom_topic: "cat/odom"
+    robot_frame: "cat/base_link"
+
+collision_monitor:
+  ros__parameters:
+    use_sim_time: True
+    base_frame_id: "cat/base_link"
+    odom_frame_id: "cat/odom"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
+    cmd_vel_out_topic: "/cat/cmd_vel"
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 0.2
+    source_timeout: 1.0
+    base_shift_correction: True
+    stop_pub_count: 20
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "/cat/scan"
+    polygons: ["PolygonStop"]
+    PolygonStop:
+      type: "polygon"
+      points:
+        - 0.1
+        - 0.1
+        - 0.1
+        - -0.1
+        - -0.1
+        - -0.1
+        - -0.1
+        - 0.1
+      action_type: "stop"
+      min_points: 4
+      visualize: True
+      polygon_pub_topic: "polygon_stop"
+
+behavior_server:
+  ros__parameters:
+    use_sim_time: True
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "wait", "drive_on_heading", "assisted_teleop"]
+    
+    # Correct Frames
+    global_frame: "cat/odom"
+    robot_base_frame: "cat/base_link"
+
+    # CRITICAL FIX: Use "::" instead of "/"
+    spin:
+      plugin: "nav2_behaviors::Spin"       # <-- WAS nav2_behaviors/Spin
+    backup:
+      plugin: "nav2_behaviors::BackUp"     # <-- WAS nav2_behaviors/BackUp
+    wait:
+      plugin: "nav2_behaviors::Wait"       # <-- WAS nav2_behaviors/Wait
+    drive_on_heading:
+      plugin: "nav2_behaviors::DriveOnHeading"
+    assisted_teleop:
+      plugin: "nav2_behaviors::AssistedTeleop"
