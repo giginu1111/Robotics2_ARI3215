@@ -64,7 +64,7 @@ def generate_launch_description():
 
     spawn_cat = Node(
         package='ros_gz_sim', executable='create',
-        arguments=['-string', cat_xml, '-name', 'cat', '-x', '4.0', '-y', '4.0', '-z', '0.1'],
+        arguments=['-string', cat_xml, '-name', 'cat', '-x', '4.0', '-y', '4.0', '-z', '0.5'],
         output='screen'
     )
 
