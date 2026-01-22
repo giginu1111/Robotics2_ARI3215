@@ -49,7 +49,7 @@ controller_server:
       approach_velocity_scaling_dist: 0.6
       
       # Turning Logic: Snappy in-place turns
-      use_rotate_to_heading: true
+      use_rotate_to_heading: false
       rotate_to_heading_min_angle: 1.0
       rotate_to_heading_angular_vel: 5.0 # FAST ROTATION (1.8 rad/s)
       
