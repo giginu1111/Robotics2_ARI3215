@@ -76,7 +76,7 @@ def generate_launch_description():
     
     declare_mouse_brain = DeclareLaunchArgument(
         'mouse_controller',
-        default_value='hybrid_explorer_mouse',
+        default_value='mouse_brain',
         description='Mouse AI controller: hybrid_explorer_mouse, smart_mouse, or teleop'
     )
     
@@ -153,7 +153,7 @@ def generate_launch_description():
     mouse_rsp = Node(
         package='robot_state_publisher', executable='robot_state_publisher',
         namespace='mouse', 
-        parameters=[{'use_sim_time': True, 'robot_description': mouse_xml}],
+        parameters=[{'use_sim_time': True, 'robot_description': mouse_robot_description}],
         output='screen'
     )
 
@@ -161,7 +161,7 @@ def generate_launch_description():
     cat_rsp = Node(
         package='robot_state_publisher', executable='robot_state_publisher',
         namespace='cat',
-        parameters=[{'use_sim_time': True, 'robot_description': cat_xml}],
+        parameters=[{'use_sim_time': True, 'robot_description': cat_robot_description}],
         output='screen'
     )
 
