@@ -149,29 +149,19 @@ def generate_launch_description():
     # ========================================================================
     # SECTION 6: ROBOT STATE PUBLISHERS (TF TREE)
     # ========================================================================
-    mouse_state_publisher = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        namespace='mouse',
-        name='mouse_state_publisher',
-        parameters=[{
-            'use_sim_time': True,
-            'robot_description': mouse_robot_description,
-            'frame_prefix': 'mouse/'
-        }],
+     # Mouse State Publisher
+    mouse_rsp = Node(
+        package='robot_state_publisher', executable='robot_state_publisher',
+        namespace='mouse', 
+        parameters=[{'use_sim_time': True, 'robot_description': mouse_xml}],
         output='screen'
     )
 
-    cat_state_publisher = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
+    # Cat State Publisher
+    cat_rsp = Node(
+        package='robot_state_publisher', executable='robot_state_publisher',
         namespace='cat',
-        name='cat_state_publisher',
-        parameters=[{
-            'use_sim_time': True,
-            'robot_description': cat_robot_description,
-            'frame_prefix': 'cat/'
-        }],
+        parameters=[{'use_sim_time': True, 'robot_description': cat_xml}],
         output='screen'
     )
 
@@ -362,8 +352,8 @@ def generate_launch_description():
         actions=[
             spawn_mouse,
             spawn_cat,
-            mouse_state_publisher,
-            cat_state_publisher,
+            mouse_rsp,
+            cat_rsp,
             ros_gz_bridge
         ]
     )
