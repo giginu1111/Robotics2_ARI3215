@@ -207,6 +207,20 @@ def generate_launch_description():
         output='screen'
     )
 
+    mouse_brain = Node(
+        package='pac_mouse_pkg',
+        executable='hybrid_explorer_mouse',
+        name='mouse_brain',
+        output='screen'
+    )
+
+    cat_brain = Node(
+        package='pac_mouse_pkg',
+        executable='cat_brain',
+        name='cat_brain',
+        output='screen'
+    )
+
     # ========================================================================
     # 9. LAUNCH SEQUENCE
     # ========================================================================
@@ -222,10 +236,18 @@ def generate_launch_description():
         ]
     )
     extra_delayed_nodes = TimerAction(
-        period=7.0,
+        period=10.0,
+        actions=[
+            *nav_nodes
+        ]
+    )
+
+    extra_extra_delayed_nodes = TimerAction(
+        period=30.0,
         actions=[
             game_master,
-            *nav_nodes
+            mouse_brain,
+            cat_brain
         ]
     )
 
