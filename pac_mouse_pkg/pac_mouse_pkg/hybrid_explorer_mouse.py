@@ -59,7 +59,7 @@ class HybridMouse(Node):
         
         # Internal Grid
         self.resolution = 0.15 # 15cm grid cells
-        self.grid_size = 120   # 18m x 18m area
+        self.grid_size = 160   # 18m x 18m area
         self.origin = self.grid_size // 2
         self.grid = np.full((self.grid_size, self.grid_size), -1, dtype=int) 
 
@@ -363,7 +363,7 @@ class HybridMouse(Node):
                 min_dist = d
                 closest_name = cheese['name']
         
-        if closest_name and min_dist < 2.0: # Only eat if reasonably close
+        if closest_name and min_dist < 0.4: # Only eat if reasonably close
             self.delete_model(closest_name)
             self.pub_score.publish(String(data=closest_name))
             self.possible_cheeses = [c for c in self.possible_cheeses if c['name'] != closest_name]

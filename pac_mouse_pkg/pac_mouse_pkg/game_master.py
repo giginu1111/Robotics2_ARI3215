@@ -11,8 +11,8 @@ class GameMaster(Node):
         super().__init__('game_master')
         
         # SETTINGS
-        self.catch_radius = 0.4
-        self.total_cheeses_needed = 1 # Update this if you add more cheese!
+        self.catch_radius = 0.5
+        self.total_cheeses_needed = 4 # Update this if you add more cheese!
         self.cheeses_collected = 0
         self.power_mode = False
         self.game_active = True
