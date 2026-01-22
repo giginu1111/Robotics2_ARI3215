@@ -26,7 +26,7 @@ def generate_launch_description():
     ekf_config       = os.path.join(pkg_share, 'config', 'ekf.yaml')
     slam_config      = os.path.join(pkg_share, 'config', 'slam_params.yaml')
     rviz_config      = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
-    world_file       = os.path.join(pkg_share, 'worlds', 'maze_v3.sdf')
+    world_file       = os.path.join(pkg_share, 'worlds', 'maze_v3_scaled_1.5.sdf')
 
     # ========================================================================
     # 2. PROCESS URDFs (XACRO)
