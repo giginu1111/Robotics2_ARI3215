@@ -394,7 +394,7 @@
             <dimensions>3</dimensions> <topic>/model/$(arg robot_name)/odometry</topic>
             <tf_topic>/model/$(arg robot_name)/tf</tf_topic>
             
-            <odom_frame>$(arg robot_name)map</odom_frame>
+            <odom_frame>map</odom_frame>
             <robot_base_frame>$(arg robot_name)/base_link</robot_base_frame>
             <odom_publish_frequency>50</odom_publish_frequency>
         </plugin>
