@@ -226,7 +226,7 @@ def generate_launch_description():
     # ========================================================================
     # Delay sensitive nodes to allow Gazebo to start publishing /clock
     delay_first_nodes = TimerAction(
-        period=5.0,
+        period=10.0,
         actions=[
             spawn_mouse,
             spawn_cat,
@@ -237,7 +237,7 @@ def generate_launch_description():
     )
     
     delayed_nodes = TimerAction(
-        period=10.0, 
+        period=15.0, 
         actions=[
             mouse_ekf,
             rviz,
