@@ -190,10 +190,10 @@ velocity_smoother:
     feedback: "OPEN_LOOP"
     
     # LOOSE BRAKES (Allows high speed and fast turns)
-    max_velocity: [0.8, 0.0, 10.0] 
-    min_velocity: [-0.8, 0.0, -10.0]
-    max_accel: [2.5, 0.0, 6.0]
-    max_decel: [-2.5, 0.0, -6.0]
+    max_velocity: [1.0, 0.0, 10.0] 
+    min_velocity: [-1.0, 0.0, -10.0]
+    max_accel: [5.0, 0.0, 20.0]
+    max_decel: [-5.0, 0.0, -20.0]
     
     odom_topic: "mouse/odom"
     robot_frame: "mouse/base_link"
