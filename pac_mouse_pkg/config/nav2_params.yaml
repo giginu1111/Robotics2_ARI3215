@@ -35,29 +35,29 @@ controller_server:
       stateful: True
 
     # ====================================================================
-    # FAST MOUSE CONTROLLER - CORRECTED FOR RESPONSIVE TURNING
+    # SUPER FAST TANK TURNS - TELEOP SPEED!
     # ====================================================================
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       
-      # Speed settings
-      desired_linear_vel: 0.8           # Target forward speed
-      lookahead_dist: 0.6               # How far ahead to look
+      # Linear speed
+      desired_linear_vel: 0.8
+      lookahead_dist: 0.6
       min_lookahead_dist: 0.3
       min_approach_linear_velocity: 0.05
       approach_velocity_scaling_dist: 0.6
       
-      # CRITICAL FIX: Proper rotation settings
-      use_rotate_to_heading: true       # Enable in-place rotation for sharp turns
-      rotate_to_heading_min_angle: 0.785  # 45 degrees (when to do in-place turn)
-      rotate_to_heading_angular_vel: 2.0  # FIXED: 2.0 rad/s (was 50.0!)
-      max_angular_accel: 3.2              # ADDED: Angular acceleration limit
+      # ⚡ FAST ROTATION SETTINGS ⚡
+      use_rotate_to_heading: true
+      rotate_to_heading_min_angle: 0.5         # Rotate for turns > 30°
+      rotate_to_heading_angular_vel: 4.0       # 🚀 FAST! (229°/s)
+      max_angular_accel: 6.0                   # 🚀 Quick acceleration
       
-      # Control gains
+      # Control
       transform_tolerance: 0.1
       use_velocity_scaled_lookahead_dist: false
       
-      # Cost regulation (collision avoidance)
+      # Collision avoidance
       use_collision_detection: true
       use_cost_regulated_linear_velocity_scaling: true
       cost_scaling_dist: 0.6
@@ -65,8 +65,6 @@ controller_server:
       inflation_cost_scaling_factor: 3.0
       regulated_linear_scaling_min_radius: 0.9
       regulated_linear_scaling_min_speed: 0.25
-      
-      # Safety
       max_allowed_time_to_collision_up_to_carrot: 1.0
 
 local_costmap:
@@ -188,7 +186,7 @@ waypoint_follower:
       waypoint_pause_duration: 50
 
 # ====================================================================
-# VELOCITY SMOOTHER - CORRECTED LIMITS
+# VELOCITY SMOOTHER - UNLEASHED FOR FAST TURNS
 # ====================================================================
 velocity_smoother:
   ros__parameters:
@@ -198,10 +196,10 @@ velocity_smoother:
     feedback: "OPEN_LOOP"
     
     # Format: [linear.x, linear.y, angular.z]
-    max_velocity: [1.0, 0.0, 2.5]       # FIXED: 2.5 rad/s (was 10.0!)
-    min_velocity: [-0.5, 0.0, -2.5]     # FIXED: -2.5 rad/s (was -10.0!)
-    max_accel: [2.5, 0.0, 3.2]          # FIXED: 3.2 rad/s² (was 20.0!)
-    max_decel: [-2.5, 0.0, -3.2]        # FIXED: -3.2 rad/s² (was -20.0!)
+    max_velocity: [1.0, 0.0, 4.5]        # 🚀 Allow 4.5 rad/s (258°/s)
+    min_velocity: [-0.5, 0.0, -4.5]      # 🚀 Fast reverse rotation too
+    max_accel: [2.5, 0.0, 6.0]           # 🚀 Quick angular acceleration
+    max_decel: [-2.5, 0.0, -6.0]         # 🚀 Quick angular deceleration
     
     odom_topic: "mouse/odom"
     robot_frame: "mouse/base_link"
