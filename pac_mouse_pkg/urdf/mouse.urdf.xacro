@@ -123,6 +123,8 @@
             <parent link="$(arg robot_name)/base_link"/>
             <child link="$(arg robot_name)/${prefix}_wheel"/>
             <origin xyz="0.03 ${y_pos} -0.02" rpy="0 0 0"/> <axis xyz="0 1 0"/>
+
+            <limit effort="100" velocity="20.0"/>
         </joint>
         
         <gazebo reference="$(arg robot_name)/${prefix}_wheel">
