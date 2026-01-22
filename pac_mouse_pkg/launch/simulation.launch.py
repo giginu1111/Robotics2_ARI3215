@@ -225,8 +225,19 @@ def generate_launch_description():
     # 9. LAUNCH SEQUENCE
     # ========================================================================
     # Delay sensitive nodes to allow Gazebo to start publishing /clock
+    delay_first_nodes = TimerAction(
+        period=5.0,
+        actions=[
+            spawn_mouse,
+            spawn_cat,
+            mouse_rsp,
+            cat_rsp,
+            bridge
+        ]
+    )
+    
     delayed_nodes = TimerAction(
-        period=5.0, 
+        period=10.0, 
         actions=[
             mouse_ekf,
             rviz,
@@ -236,7 +247,7 @@ def generate_launch_description():
         ]
     )
     extra_delayed_nodes = TimerAction(
-        period=10.0,
+        period=20.0,
         actions=[
             *nav_nodes
         ]
@@ -254,11 +265,9 @@ def generate_launch_description():
     return LaunchDescription([
         set_model_path,
         gazebo,
-        spawn_mouse,
-        spawn_cat,
-        mouse_rsp,
-        cat_rsp,
-        bridge,
+        delay_first_nodes,
         delayed_nodes,
-        extra_delayed_nodes
-    ])
+        extra_delayed_nodes,
+        extra_extra_delayed_nodes
+        ]
+    )
