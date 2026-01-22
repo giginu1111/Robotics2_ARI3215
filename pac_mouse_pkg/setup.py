@@ -52,16 +52,9 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'explorer = pac_mouse_pkg.explorer:main',
-            'smart_mouse = pac_mouse_pkg.smart_mouse:main',
-            'smart_mouse_hew = pac_mouse_pkg.smart_mouse_hew:main',
             'cat_brain = pac_mouse_pkg.cat_brain:main',
-            'teleop = pac_mouse_pkg.teleop:main',
             'mouse_brain = pac_mouse_pkg.mouse_brain:main',
             'game_master = pac_mouse_pkg.game_master:main',
-            'mouse_navigator = pac_mouse_pkg.mouse_navigator:main',
-            'explorer_mouse = pac_mouse_pkg.explorer_mouse:main',
-            'hybrid_explorer_mouse = pac_mouse_pkg.hybrid_explorer_mouse:main',
         ],
     },
 )

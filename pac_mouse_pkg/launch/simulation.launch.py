@@ -1,112 +1,211 @@
+#!/usr/bin/env python3
+"""
+=============================================================================
+COMPLETE PAC-MOUSE SIMULATION LAUNCH FILE
+=============================================================================
+Course: Robotics 2 (ARI3215)
+Project: Autonomous Cat and Mouse Chase Simulation
+
+This launch file orchestrates the complete simulation environment including:
+- Gazebo physics simulation with custom maze world
+- Two differential drive robots (cat and mouse)
+- SLAM for mapping and localization
+- Nav2 stack for autonomous navigation
+- ROS-Gazebo bridge for sensor/actuator communication
+- Custom AI controllers for both agents
+- Game master for scoring and state management
+- RViz for visualization
+
+Author: Damian Cutajar
+Date: January 2026
+=============================================================================
+"""
+
 import os
 import xacro
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction, AppendEnvironmentVariable, GroupAction , ExecuteProcess
+from launch.actions import (
+    IncludeLaunchDescription, 
+    TimerAction, 
+    AppendEnvironmentVariable, 
+    DeclareLaunchArgument,
+    ExecuteProcess
+)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch_ros.actions import Node, SetRemap
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 def generate_launch_description():
+    """
+    Generates the complete launch description for the pac-mouse simulation.
+    
+    Returns:
+        LaunchDescription: Complete launch configuration
+    """
+    
     # ========================================================================
-    # 1. SETUP & PATHS
+    # SECTION 1: PACKAGE PATHS AND CONFIGURATION FILES
     # ========================================================================
     pkg_share = get_package_share_directory('pac_mouse_pkg')
-    nav2_params_file = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
     slam_toolbox_share = get_package_share_directory('slam_toolbox')
     
-    # Ensure Gazebo can find models/meshes
+    # Configuration file paths
+    nav2_params_file = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
+    bridge_config = os.path.join(pkg_share, 'config', 'bridge_params.yaml')
+    ekf_config = os.path.join(pkg_share, 'config', 'ekf.yaml')
+    slam_config = os.path.join(pkg_share, 'config', 'slam_params.yaml')
+    rviz_config = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
+    world_file = os.path.join(pkg_share, 'worlds', 'maze_v3_scaled_1.5.sdf')
+    
+    # Ensure Gazebo can find custom models
     set_model_path = AppendEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH', 
         value=os.path.join(pkg_share, 'models')
     )
 
-    # Config Files
-    bridge_config    = os.path.join(pkg_share, 'config', 'bridge_params.yaml')
-    ekf_config       = os.path.join(pkg_share, 'config', 'ekf.yaml')
-    slam_config      = os.path.join(pkg_share, 'config', 'slam_params.yaml')
-    rviz_config      = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
-    world_file       = os.path.join(pkg_share, 'worlds', 'maze_v3_scaled_1.5.sdf')
-
     # ========================================================================
-    # 2. PROCESS URDFs (XACRO)
+    # SECTION 2: LAUNCH ARGUMENTS FOR CONFIGURABILITY
     # ========================================================================
-    # We pass 'robot_name' to create namespaced frames (e.g., mouse/base_link)
+    declare_use_sim_time = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='true',
+        description='Use simulation (Gazebo) clock if true'
+    )
     
-    # Process Mouse
-    mouse_file = os.path.join(pkg_share, 'urdf', 'mouse.urdf.xacro')
-    mouse_doc = xacro.process_file(mouse_file, mappings={'robot_name': 'mouse'})
-    mouse_xml = mouse_doc.toxml()
-
-    # Process Cat
-    cat_file = os.path.join(pkg_share, 'urdf', 'cat.urdf.xacro')
-    cat_doc = xacro.process_file(cat_file, mappings={'robot_name': 'cat'})
-    cat_xml = cat_doc.toxml()
+    declare_mouse_brain = DeclareLaunchArgument(
+        'mouse_controller',
+        default_value='hybrid_explorer_mouse',
+        description='Mouse AI controller: hybrid_explorer_mouse, smart_mouse, or teleop'
+    )
+    
+    declare_cat_brain = DeclareLaunchArgument(
+        'cat_controller',
+        default_value='cat_brain',
+        description='Cat AI controller executable name'
+    )
 
     # ========================================================================
-    # 3. GAZEBO SIMULATION
+    # SECTION 3: ROBOT DESCRIPTION PROCESSING (URDF/XACRO)
     # ========================================================================
-    gazebo = IncludeLaunchDescription(
+    # Process Mouse URDF with xacro
+    mouse_urdf_file = os.path.join(pkg_share, 'urdf', 'mouse.urdf.xacro')
+    mouse_doc = xacro.process_file(mouse_urdf_file, mappings={'robot_name': 'mouse'})
+    mouse_robot_description = mouse_doc.toxml()
+
+    # Process Cat URDF with xacro
+    cat_urdf_file = os.path.join(pkg_share, 'urdf', 'cat.urdf.xacro')
+    cat_doc = xacro.process_file(cat_urdf_file, mappings={'robot_name': 'cat'})
+    cat_robot_description = cat_doc.toxml()
+
+    # ========================================================================
+    # SECTION 4: GAZEBO SIMULATION ENVIRONMENT
+    # ========================================================================
+    gazebo_server = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')
+            os.path.join(get_package_share_directory('ros_gz_sim'), 
+                        'launch', 'gz_sim.launch.py')
         ),
-        launch_arguments={'gz_args': f'-r {world_file}'}.items(),
+        launch_arguments={
+            'gz_args': f'-r {world_file}',  # -r flag starts simulation paused
+            'on_exit_shutdown': 'true'
+        }.items(),
     )
 
     # ========================================================================
-    # 4. SPAWN ROBOTS
+    # SECTION 5: ROBOT SPAWNING
     # ========================================================================
+    # Spawn Mouse at bottom-left corner
     spawn_mouse = Node(
-        package='ros_gz_sim', executable='create',
-        arguments=['-string', mouse_xml, '-name', 'mouse', '-x', '-3.0', '-y', '-3.0', '-z', '0.1'],
+        package='ros_gz_sim',
+        executable='create',
+        arguments=[
+            '-string', mouse_robot_description,
+            '-name', 'mouse',
+            '-x', '-3.0',
+            '-y', '-3.0',
+            '-z', '0.1',
+            '-Y', '0.0'  # Yaw orientation
+        ],
         output='screen'
     )
 
+    # Spawn Cat at top-right corner
     spawn_cat = Node(
-        package='ros_gz_sim', executable='create',
-        arguments=['-string', cat_xml, '-name', 'cat', '-x', '4.0', '-y', '4.0', '-z', '0.5'],
+        package='ros_gz_sim',
+        executable='create',
+        arguments=[
+            '-string', cat_robot_description,
+            '-name', 'cat',
+            '-x', '4.0',
+            '-y', '4.0',
+            '-z', '0.5',
+            '-Y', '3.14159'  # Facing opposite direction
+        ],
         output='screen'
     )
 
     # ========================================================================
-    # 5. STATE PUBLISHERS & TF
+    # SECTION 6: ROBOT STATE PUBLISHERS (TF TREE)
     # ========================================================================
-    
-    # Mouse State Publisher
-    mouse_rsp = Node(
-        package='robot_state_publisher', executable='robot_state_publisher',
-        namespace='mouse', 
-        parameters=[{'use_sim_time': True, 'robot_description': mouse_xml}],
+    mouse_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        namespace='mouse',
+        name='mouse_state_publisher',
+        parameters=[{
+            'use_sim_time': True,
+            'robot_description': mouse_robot_description,
+            'frame_prefix': 'mouse/'
+        }],
         output='screen'
     )
 
-    # Cat State Publisher
-    cat_rsp = Node(
-        package='robot_state_publisher', executable='robot_state_publisher',
+    cat_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
         namespace='cat',
-        parameters=[{'use_sim_time': True, 'robot_description': cat_xml}],
-        output='screen'
-    )
-
-    # Static TF Fixes (Gazebo Sensor Frame Alignment)
-    # Fixes nested sensor frames that sometimes fail to link in Gazebo
-    fix_mouse_lidar = Node(
-        package='tf2_ros', executable='static_transform_publisher',
-        arguments=['0.05', '0', '0.04', '0', '0', '0', 'mouse/base_link', 'mouse/mouse/base_link/lidar'],
-        output='screen'
-    )
-
-    fix_cat_lidar = Node(
-        package='tf2_ros', executable='static_transform_publisher',
-        arguments=['0.05', '0', '0.10', '0', '0', '0', 'cat/base_link', 'cat/cat/base_link/lidar'],
+        name='cat_state_publisher',
+        parameters=[{
+            'use_sim_time': True,
+            'robot_description': cat_robot_description,
+            'frame_prefix': 'cat/'
+        }],
         output='screen'
     )
 
     # ========================================================================
-    # 6. ROS-GAZEBO BRIDGE
+    # SECTION 7: STATIC TF TRANSFORMS (SENSOR FRAME FIXES)
     # ========================================================================
-    bridge = Node(
-        package='ros_gz_bridge', executable='parameter_bridge',
+    # Fix LiDAR frame alignment for mouse
+    mouse_lidar_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='mouse_lidar_fix',
+        arguments=['0.05', '0', '0.04', '0', '0', '0', 
+                  'mouse/base_link', 'mouse/mouse/base_link/lidar'],
+        output='screen'
+    )
+
+    # Fix LiDAR frame alignment for cat
+    cat_lidar_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='cat_lidar_fix',
+        arguments=['0.05', '0', '0.10', '0', '0', '0', 
+                  'cat/base_link', 'cat/cat/base_link/lidar'],
+        output='screen'
+    )
+
+    # ========================================================================
+    # SECTION 8: ROS-GAZEBO BRIDGE
+    # ========================================================================
+    # Bridges Gazebo topics to ROS 2 topics
+    ros_gz_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='ros_gz_bridge',
         parameters=[{'config_file': bridge_config}],
         remappings=[
             ('/mouse/tf', '/tf'),
@@ -116,17 +215,16 @@ def generate_launch_description():
     )
 
     # ========================================================================
-    # 7. LOCALIZATION (EKF & SLAM)
+    # SECTION 9: LOCALIZATION - EXTENDED KALMAN FILTER
     # ========================================================================
-    
-    # EKF for Mouse (Sensor Fusion)
+    # Fuses odometry and IMU data for better pose estimation
     mouse_ekf = Node(
-        package='robot_localization', executable='ekf_node',
+        package='robot_localization',
+        executable='ekf_node',
         name='ekf_filter_node',
         namespace='mouse',
-        output='screen',
         parameters=[
-            ekf_config, 
+            ekf_config,
             {
                 'use_sim_time': True,
                 'map_frame': 'map',
@@ -135,12 +233,15 @@ def generate_launch_description():
                 'world_frame': 'mouse/odom',
                 'odom0': '/mouse/odom',
                 'imu0': '/mouse/imu',
-                'publish_tf': True 
+                'publish_tf': True
             }
-        ]
+        ],
+        output='screen'
     )
 
-    # SLAM Toolbox (Mapping)
+    # ========================================================================
+    # SECTION 10: SLAM - SIMULTANEOUS LOCALIZATION AND MAPPING
+    # ========================================================================
     slam_toolbox = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(slam_toolbox_share, 'launch', 'online_async_launch.py')
@@ -150,145 +251,175 @@ def generate_launch_description():
             'use_sim_time': 'true'
         }.items()
     )
-    # 8. NAVIGATION (Manual Launch - Bypasses Collision Monitor Error)
-    # We launch only the 4 essential nodes needed to drive.
-    nav_nodes = []
-    
-    # A. Controller (The Driver)
-    nav_nodes.append(Node(
-        package='nav2_controller', executable='controller_server',
-        output='screen', parameters=[nav2_params_file],
-        remappings=[('cmd_vel', '/mouse/cmd_vel')] # WIRE DIRECTLY TO MOUSE
-    ))
 
-    # B. Planner (The Map Reader)
-    nav_nodes.append(Node(
-        package='nav2_planner', executable='planner_server',
-        name='planner_server', output='screen', parameters=[nav2_params_file]
-    ))
-
-    # C. Behaviors (Recovery actions like backing up)
-    nav_nodes.append(Node(
-        package='nav2_behaviors', executable='behavior_server',
-        name='behavior_server', output='screen', parameters=[nav2_params_file],
+    # ========================================================================
+    # SECTION 11: NAVIGATION STACK (NAV2)
+    # ========================================================================
+    # Controller Server: Executes path plans
+    controller_server = Node(
+        package='nav2_controller',
+        executable='controller_server',
+        name='controller_server',
+        output='screen',
+        parameters=[nav2_params_file, {'use_sim_time': True}],
         remappings=[('cmd_vel', '/mouse/cmd_vel')]
-    ))
+    )
 
-    # D. BT Navigator (The Brain that coordinates them)
-    nav_nodes.append(Node(
-        package='nav2_bt_navigator', executable='bt_navigator',
-        name='bt_navigator', output='screen', parameters=[nav2_params_file]
-    ))
+    # Planner Server: Generates optimal paths
+    planner_server = Node(
+        package='nav2_planner',
+        executable='planner_server',
+        name='planner_server',
+        output='screen',
+        parameters=[nav2_params_file, {'use_sim_time': True}]
+    )
 
-    # E. Lifecycle Manager (Turns them all on)
-    nav_nodes.append(Node(
-        package='nav2_lifecycle_manager', executable='lifecycle_manager',
-        name='lifecycle_manager_navigation', output='screen',
-        parameters=[{'use_sim_time': True, 
-                     'autostart': True, 
-                     'node_names': ['controller_server', 'planner_server', 'behavior_server', 'bt_navigator']}]
-    ))
+    # Behavior Server: Handles recovery behaviors
+    behavior_server = Node(
+        package='nav2_behaviors',
+        executable='behavior_server',
+        name='behavior_server',
+        output='screen',
+        parameters=[nav2_params_file, {'use_sim_time': True}],
+        remappings=[('cmd_vel', '/mouse/cmd_vel')]
+    )
+
+    # BT Navigator: Coordinates navigation using behavior trees
+    bt_navigator = Node(
+        package='nav2_bt_navigator',
+        executable='bt_navigator',
+        name='bt_navigator',
+        output='screen',
+        parameters=[nav2_params_file, {'use_sim_time': True}]
+    )
+
+    # Lifecycle Manager: Manages navigation node lifecycle
+    nav_lifecycle_manager = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_navigation',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'autostart': True,
+            'node_names': [
+                'controller_server',
+                'planner_server',
+                'behavior_server',
+                'bt_navigator'
+            ]
+        }]
+    )
 
     # ========================================================================
-    # 8. VISUALIZATION (RVIZ)
+    # SECTION 12: CUSTOM AI CONTROLLERS
     # ========================================================================
-    rviz = Node(
-        package='rviz2', executable='rviz2',
-        name='rviz2',
-        arguments=['-d', rviz_config],
+    # Mouse Brain: Autonomous exploration and cheese collection
+    mouse_brain = Node(
+        package='pac_mouse_pkg',
+        executable='mouse_brain',  # Changed from hybrid_explorer_mouse
+        name='mouse_brain',
+        output='screen',
         parameters=[{'use_sim_time': True}]
     )
 
-    # GAME MASTER (Referee)
-    game_master = Node(
-        package='pac_mouse_pkg',
-        executable='game_master',
-        name='game_master',
-        output='screen'
-    )
-
-    mouse_brain = Node(
-        package='pac_mouse_pkg',
-        executable='hybrid_explorer_mouse',
-        name='mouse_brain',
-        output='screen'
-    )
-
+    # Cat Brain: Pursuit and interception behavior
     cat_brain = Node(
         package='pac_mouse_pkg',
-        executable='cat_brain',
+        executable='cat_brain',  # Changed from cat_brain
         name='cat_brain',
-        output='screen'
-    )
-    # 1. Game Master in its own window
-    game_master_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Game Master', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'game_master'],
-        output='screen'
+        output='screen',
+        parameters=[{'use_sim_time': True}]
     )
 
-    # 2. Mouse Brain in its own window
-    mouse_brain_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Mouse Brain', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'hybrid_explorer_mouse'],
-        output='screen'
+    # Game Master: Scoring, game state, and referee
+    game_master = Node(
+        package='pac_mouse_pkg',
+        executable='game_master',  # Changed from game_master
+        name='game_master',
+        output='screen',
+        parameters=[{'use_sim_time': True}]
     )
 
-    # 3. Cat Brain in its own window
-    cat_brain_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Cat Brain', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'cat_brain'],
+    # ========================================================================
+    # SECTION 13: VISUALIZATION (RVIZ2)
+    # ========================================================================
+    rviz = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        arguments=['-d', rviz_config],
+        parameters=[{'use_sim_time': True}],
         output='screen'
     )
 
     # ========================================================================
-    # 9. LAUNCH SEQUENCE
+    # SECTION 14: TIMED LAUNCH SEQUENCE
     # ========================================================================
-    # Delay sensitive nodes to allow Gazebo to start publishing /clock
-    delay_first_nodes = TimerAction(
-        period=10.0,
+    # Phase 1: Start Gazebo and wait for /clock topic (5s)
+    phase_1 = TimerAction(
+        period=5.0,
         actions=[
             spawn_mouse,
             spawn_cat,
-            mouse_rsp,
-            cat_rsp,
-            bridge
+            mouse_state_publisher,
+            cat_state_publisher,
+            ros_gz_bridge
         ]
     )
     
-    delayed_nodes = TimerAction(
-        period=15.0, 
+    # Phase 2: Start localization and visualization (10s)
+    phase_2 = TimerAction(
+        period=10.0,
         actions=[
             mouse_ekf,
-            rviz,
-            fix_mouse_lidar,
-            fix_cat_lidar,
-            slam_toolbox
+            mouse_lidar_tf,
+            cat_lidar_tf,
+            slam_toolbox,
+            rviz
         ]
     )
-    extra_delayed_nodes = TimerAction(
-        period=20.0,
+    
+    # Phase 3: Start navigation stack (15s)
+    phase_3 = TimerAction(
+        period=15.0,
         actions=[
-            *nav_nodes
+            controller_server,
+            planner_server,
+            behavior_server,
+            bt_navigator,
+            nav_lifecycle_manager
         ]
     )
-
-    extra_extra_delayed_nodes = TimerAction(
-        period=30.0,
+    
+    # Phase 4: Start AI controllers (20s)
+    phase_4 = TimerAction(
+        period=20.0,
         actions=[
             game_master,
             mouse_brain,
             cat_brain
-            #,
-            #game_master_cmd,
-            #mouse_brain_cmd,
-            #cat_brain_cmd
         ]
     )
 
+    # ========================================================================
+    # SECTION 15: LAUNCH DESCRIPTION
+    # ========================================================================
     return LaunchDescription([
+        # Arguments
+        declare_use_sim_time,
+        declare_mouse_brain,
+        declare_cat_brain,
+        
+        # Environment setup
         set_model_path,
-        gazebo,
-        delay_first_nodes,
-        delayed_nodes,
-        extra_delayed_nodes,
-        extra_extra_delayed_nodes
-        ]
-    )
+        
+        # Gazebo
+        gazebo_server,
+        
+        # Timed sequences
+        phase_1,
+        phase_2,
+        phase_3,
+        phase_4
+    ])

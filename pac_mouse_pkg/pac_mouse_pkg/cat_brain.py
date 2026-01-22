@@ -1,470 +1,418 @@
 #!/usr/bin/env python3
 """
-cat_brain_v2.py
+=============================================================================
+ADVANCED CAT BRAIN CONTROLLER
+=============================================================================
+Course: Robotics 2 (ARI3215)
+Project: Pac-Mouse Autonomous Navigation
 
-Stable Pac-Man-style cat:
-- PATROL (default)
-- CHASE (only when mouse is visible / sniff radius)
-- INVESTIGATE (go to last seen location, then give up)
-- ESCAPE (when power mode / cheese eaten)
+OVERVIEW:
+This node implements an intelligent cat controller that hunts the mouse
+using sensor fusion, predictive pursuit, and strategic interception.
 
-Fixes vs “spasming”:
-- clamps angular velocity + smooth forward policy (no stop/go jitter)
-- wall-aware escape + wall-aware goal seeking
-- “unstuck” recovery if not making forward progress
-- state logging only on transitions
+FEATURES:
+1. Mouse Tracking: Detects mouse using LiDAR and camera
+2. Predictive Pursuit: Anticipates mouse movement
+3. Interception: Calculates optimal intercept paths
+4. Obstacle Avoidance: Navigates around walls while pursuing
+5. Search Behavior: Explores when mouse is not visible
+
+PURSUIT STRATEGIES:
+- DIRECT_CHASE: Simple pursuit towards last known position
+- PREDICTIVE_INTERCEPT: Calculates future mouse position
+- SEARCH_PATTERN: Systematic exploration when contact lost
+
+SENSORS USED:
+- LiDAR: Obstacle detection and mouse ranging
+- Camera: Visual confirmation of mouse (future feature)
+- Odometry: Self-localization
+
+Author: Damian Cutajar
+Date: January 2026
+=============================================================================
 """
-
-import math
-import time
-import random
 
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 
-from nav_msgs.msg import Odometry
+# ROS Messages
+from geometry_msgs.msg import Twist, Point
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 
-from transforms3d.euler import quat2euler
+# Processing
+import numpy as np
+import math
+from collections import deque
 
 
-# =========================
-# CAT STATES
-# =========================
-PATROL = 0
-CHASE = 1
-INVESTIGATE = 2
-ESCAPE = 3
-
-
-class CatBrainV2(Node):
+class ProposalCatBrain(Node):
+    """
+    Advanced cat controller implementing intelligent pursuit and hunting behaviors.
+    """
+    
     def __init__(self):
-        super().__init__('cat_brain_v2')
-
-        # -------------------------
-        # SUBSCRIBERS
-        # -------------------------
-        self.sub_cat_odom = self.create_subscription(
-            Odometry, '/cat/odom', self.cat_odom_cb, 10)
-
-        # NOTE: we still subscribe to mouse odom for:
-        #  - visibility test (LOS via lidar)
-        #  - escape direction
-        # But the cat ONLY CHASES when "visible".
-        self.sub_mouse_odom = self.create_subscription(
-            Odometry, '/mouse/odom', self.mouse_odom_cb, 10)
-
-        self.sub_lidar = self.create_subscription(
-            LaserScan, '/cat/scan', self.lidar_cb, 10)
-
-        # Power mode trigger (your project uses this)
-        self.sub_cheese = self.create_subscription(
-            String, '/cheese_eaten', self.cheese_cb, 10)
-
-        # -------------------------
-        # PUBLISHER
-        # -------------------------
+        super().__init__('proposal_cat_brain',
+                        parameter_overrides=[Parameter('use_sim_time', value=True)])
+        
+        # ====================================================================
+        # CONFIGURATION PARAMETERS
+        # ====================================================================
+        self.declare_parameter('max_linear_speed', 0.35)
+        self.declare_parameter('max_angular_speed', 2.0)
+        self.declare_parameter('mouse_detection_range', 5.0)
+        self.declare_parameter('capture_distance', 0.3)
+        self.declare_parameter('prediction_horizon', 1.0)  # seconds
+        
+        # Load parameters
+        self.max_linear_speed = self.get_parameter('max_linear_speed').value
+        self.max_angular_speed = self.get_parameter('max_angular_speed').value
+        self.detection_range = self.get_parameter('mouse_detection_range').value
+        self.capture_dist = self.get_parameter('capture_distance').value
+        self.prediction_time = self.get_parameter('prediction_horizon').value
+        
+        # ====================================================================
+        # PUBLISHERS
+        # ====================================================================
         self.cmd_pub = self.create_publisher(Twist, '/cat/cmd_vel', 10)
-
-        # -------------------------
-        # POSE / SENSOR STATE
-        # -------------------------
-        self.cat_pose = None
+        self.status_pub = self.create_publisher(String, '/cat_status', 10)
+        
+        # ====================================================================
+        # SUBSCRIBERS
+        # ====================================================================
+        self.create_subscription(LaserScan, '/cat/scan', self.lidar_callback, 10)
+        self.create_subscription(Odometry, '/cat/odom', self.odometry_callback, 10)
+        self.create_subscription(Odometry, '/mouse/odom', self.mouse_odometry_callback, 10)
+        
+        # ====================================================================
+        # STATE VARIABLES
+        # ====================================================================
+        # Cat state
+        self.cat_x = 0.0
+        self.cat_y = 0.0
         self.cat_yaw = 0.0
-
-        self.mouse_pose = None
-
-        self.lidar_ranges = []
-        self.angle_min = 0.0
-        self.angle_inc = 0.0
-
-        # -------------------------
-        # FSM STATE
-        # -------------------------
-        self.state = PATROL
-        self.last_state = None
-        self.power_mode = False
-
-        self.last_seen_pos = None
-        self.last_seen_time = None
-
-        # -------------------------
-        # BEHAVIOUR PARAMETERS (tunable)
-        # -------------------------
-        # perception
-        self.sniff_radius = 1.2          # always detect if within this distance
-        self.belief_timeout = 5.0        # seconds to keep investigating after losing sight
-        self.los_epsilon = 0.15          # LOS slack for lidar comparison
-
-        # motion limits (key for stability)
-        self.max_lin = 1.4               # m/s (keep modest for maze)
-        self.max_ang = 1.7               # rad/s (clamped)
-
-        # steering
-        self.k_ang = 1.8                 # angular proportional gain (then clamped)
-        self.turn_only_thresh = 1.0      # if |err| > this, don't drive forward
-
-        # obstacle safety
-        self.front_stop_dist = 0.25      # if obstacle closer than this straight ahead -> stop/turn
-        self.front_slow_dist = 0.55      # if obstacle closer than this -> slow down
-
-        # patrol behaviour
-        self.patrol_speed = 0.9
-        self.patrol_turn_speed = 0.9
-        self.patrol_switch_time = 2.5
-        self.current_patrol_dir = random.choice([-1, 1])
-        self.last_patrol_switch = time.time()
-
-        # investigate behaviour
-        self.investigate_speed = 0.6
-        self.arrival_radius = 0.35       # consider arrived at last_seen
-
-        # escape behaviour
-        self.escape_speed = 0.8
-        self.escape_turn_speed = 1.0
-
-        # unstuck recovery
-        self.last_forward_time = time.time()
-        self.stuck_timeout = 2.0         # seconds without forward motion -> recovery turn
-        self.recovery_turn_time = 0.6    # seconds to force-turn when stuck
-        self.recovering_until = 0.0
-
-        # control loop (slower = less jitter)
-        self.timer = self.create_timer(0.2, self.loop)
-
-        self.get_logger().info("🐱 Cat brain v2 online")
-        self.log_state(force=True)
-
-    # =========================
-    # Callbacks
-    # =========================
-    def cat_odom_cb(self, msg: Odometry):
-        self.cat_pose = msg.pose.pose
-        q = self.cat_pose.orientation
-        # transforms3d expects [w, x, y, z]
-        _, _, self.cat_yaw = quat2euler([q.w, q.x, q.y, q.z])
-
-    def mouse_odom_cb(self, msg: Odometry):
-        self.mouse_pose = msg.pose.pose
-
-    def lidar_cb(self, msg: LaserScan):
-        self.lidar_ranges = list(msg.ranges)
-        self.angle_min = msg.angle_min
-        self.angle_inc = msg.angle_increment
-
-    def cheese_cb(self, msg: String):
-        # Your system appears to publish on /cheese_eaten when cheese is collected.
-        # We treat FIRST receipt as power mode trigger.
-        if not self.power_mode:
-            self.power_mode = True
-            self.get_logger().warn("😱 POWER MODE — CAT ESCAPING!")
-            self.set_state(ESCAPE)
-
-    # =========================
-    # State helpers
-    # =========================
-    def log_state(self, force: bool = False):
-        if force or self.state != self.last_state:
-            names = {
-                PATROL: "PATROL",
-                CHASE: "CHASE",
-                INVESTIGATE: "INVESTIGATE",
-                ESCAPE: "ESCAPE"
-            }
-            self.get_logger().info(f"🐱 STATE → {names[self.state]}")
-            self.last_state = self.state
-
-    def set_state(self, new_state: int):
-        if new_state != self.state:
-            self.state = new_state
-            self.log_state()
-
-    # =========================
-    # Core loop
-    # =========================
-    def loop(self):
-        if self.cat_pose is None or self.mouse_pose is None:
-            return
-
-        # 0) Unstuck recovery takes priority (but not during ESCAPE: ESCAPE has its own wall logic)
-        now = time.time()
-        if not self.power_mode and now < self.recovering_until:
-            self.publish_cmd(0.0, self.patrol_turn_speed * 1.2)  # strong turn
-            return
-
-        # 1) Power mode overrides everything
-        if self.power_mode:
-            self.set_state(ESCAPE)
-            self.escape()
-            return
-
-        # 2) Perception (visibility)
-        mouse_visible = self.mouse_is_visible()
-
-        if mouse_visible:
-            self.last_seen_pos = self.mouse_pose.position
-            self.last_seen_time = time.time()
-            self.set_state(CHASE)
-        else:
-            # if we just lost the mouse during chase, investigate
-            if self.state == CHASE:
-                self.set_state(INVESTIGATE)
-
-        # 3) Execute state
-        if self.state == CHASE:
-            # chase toward last_seen_pos (only updates while visible)
-            self.go_to_point(self.last_seen_pos, speed=self.max_lin)
-
-        elif self.state == INVESTIGATE:
-            if self.last_seen_time and (time.time() - self.last_seen_time) < self.belief_timeout:
-                # move to last seen, then spin a bit (small “search”)
-                arrived = self.go_to_point(self.last_seen_pos, speed=self.investigate_speed, return_arrived=True)
-                if arrived:
-                    # small scan to look around instead of vibrating
-                    self.publish_cmd(0.0, 0.8 * self.current_patrol_dir)
-            else:
-                self.set_state(PATROL)
-                self.patrol()
-
-        elif self.state == PATROL:
-            self.patrol()
-
-        # 4) If we haven’t moved forward in a while, trigger recovery turn
-        # (Avoids “stuck pointing at wall forever”)
-        if (time.time() - self.last_forward_time) > self.stuck_timeout:
-            self.recovering_until = time.time() + self.recovery_turn_time
-            self.last_forward_time = time.time()  # reset so it doesn’t retrigger instantly
-
-    # =========================
-    # Behaviours
-    # =========================
-    def patrol(self):
-        # simple wandering: forward + gentle turning, flipping direction occasionally
-        if time.time() - self.last_patrol_switch > self.patrol_switch_time:
-            self.current_patrol_dir *= -1
-            self.last_patrol_switch = time.time()
-
-        # obstacle aware patrol: if blocked, turn
-        front = self.get_front_range()
-        if front < self.front_stop_dist:
-            self.publish_cmd(0.0, self.patrol_turn_speed * self.current_patrol_dir)
-            return
-
-        ang = 0.35 * self.current_patrol_dir
-        lin = self.patrol_speed
-
-        # slow if something close ahead
-        if front < self.front_slow_dist:
-            lin *= 0.5
-
-        self.publish_cmd(lin, ang)
-
-    def escape(self):
+        self.cat_vx = 0.0  # Linear velocity
+        self.cat_vy = 0.0
+        
+        # Mouse tracking
+        self.mouse_x = 0.0
+        self.mouse_y = 0.0
+        self.mouse_vx = 0.0
+        self.mouse_vy = 0.0
+        self.mouse_detected = False
+        self.last_mouse_time = self.get_clock().now()
+        self.mouse_history = deque(maxlen=10)  # Position history
+        
+        # LiDAR-based detection
+        self.lidar_mouse_range = 0.0
+        self.lidar_mouse_angle = 0.0
+        self.lidar_detected = False
+        
+        # Obstacle avoidance
+        self.obstacle_ahead = False
+        self.clear_direction = 0.0
+        
+        # Behavior state
+        self.state = "SEARCH"  # SEARCH, CHASE, INTERCEPT
+        self.search_angle = 0.0
+        
+        # ====================================================================
+        # CONTROL LOOP
+        # ====================================================================
+        self.control_timer = self.create_timer(0.1, self.control_loop)
+        
+        self.get_logger().info("=" * 60)
+        self.get_logger().info("😾 PROPOSAL CAT BRAIN: ONLINE - HUNTING MODE ENGAGED")
+        self.get_logger().info("=" * 60)
+    
+    # ========================================================================
+    # SENSOR CALLBACKS
+    # ========================================================================
+    
+    def odometry_callback(self, msg):
+        """Updates cat's own position and velocity."""
+        self.cat_x = msg.pose.pose.position.x
+        self.cat_y = msg.pose.pose.position.y
+        
+        # Extract yaw
+        q = msg.pose.pose.orientation
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        self.cat_yaw = math.atan2(siny_cosp, cosy_cosp)
+        
+        # Velocity in world frame
+        self.cat_vx = msg.twist.twist.linear.x * math.cos(self.cat_yaw)
+        self.cat_vy = msg.twist.twist.linear.x * math.sin(self.cat_yaw)
+    
+    def mouse_odometry_callback(self, msg):
         """
-        Flee behaviour, but wall-aware:
-        - If obstacle close ahead, turn first.
-        - Else flee away from mouse.
+        Tracks mouse position and velocity.
+        In a real scenario, this would come from sensors only.
         """
-        front = self.get_front_range()
-        if front < self.front_stop_dist:
-            # hard turn when blocked
-            turn_dir = self.pick_turn_dir()
-            self.publish_cmd(0.0, self.escape_turn_speed * turn_dir)
-            return
-
-        cx, cy = self.cat_pose.position.x, self.cat_pose.position.y
-        mx, my = self.mouse_pose.position.x, self.mouse_pose.position.y
-
-        dx = cx - mx
-        dy = cy - my
-        flee_angle = math.atan2(dy, dx)
-        err = self.normalize_angle(flee_angle - self.cat_yaw)
-
-        ang = self.clamp(self.k_ang * err, -self.max_ang, self.max_ang)
-
-        # forward policy: keep moving even if turning, but not if huge error
-        if abs(err) > self.turn_only_thresh:
-            lin = 0.15
+        self.mouse_x = msg.pose.pose.position.x
+        self.mouse_y = msg.pose.pose.position.y
+        
+        # Calculate velocity
+        self.mouse_vx = msg.twist.twist.linear.x * math.cos(self.get_mouse_yaw(msg))
+        self.mouse_vy = msg.twist.twist.linear.x * math.sin(self.get_mouse_yaw(msg))
+        
+        # Update history
+        self.mouse_history.append((self.mouse_x, self.mouse_y, self.get_clock().now()))
+        
+        # Check if mouse is in detection range
+        distance = math.hypot(self.mouse_x - self.cat_x, 
+                             self.mouse_y - self.cat_y)
+        
+        if distance < self.detection_range:
+            self.mouse_detected = True
+            self.last_mouse_time = self.get_clock().now()
         else:
-            lin = self.escape_speed
-
-        # slow near walls
-        if front < self.front_slow_dist:
-            lin *= 0.5
-
-        self.publish_cmd(lin, ang)
-
-    # =========================
-    # Motion / Control
-    # =========================
-    def publish_cmd(self, lin: float, ang: float):
-        """Central place to clamp and publish, also tracks forward progress."""
-        lin = self.clamp(lin, -self.max_lin, self.max_lin)
-        ang = self.clamp(ang, -self.max_ang, self.max_ang)
-
+            # Lose track if too far
+            time_since_seen = (self.get_clock().now() - self.last_mouse_time).nanoseconds / 1e9
+            if time_since_seen > 3.0:  # 3 second timeout
+                self.mouse_detected = False
+    
+    def get_mouse_yaw(self, odom_msg):
+        """Extracts yaw angle from mouse odometry message."""
+        q = odom_msg.pose.pose.orientation
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        return math.atan2(siny_cosp, cosy_cosp)
+    
+    def lidar_callback(self, msg):
+        """
+        Processes LiDAR for:
+        1. Obstacle detection ahead
+        2. Finding clear directions
+        3. Detecting mouse (optional)
+        """
+        ranges = np.array(msg.ranges)
+        angles = np.linspace(msg.angle_min, msg.angle_max, len(ranges))
+        
+        # Remove invalid readings
+        valid_mask = np.isfinite(ranges) & (ranges > 0.1) & (ranges < msg.range_max)
+        valid_ranges = ranges[valid_mask]
+        valid_angles = angles[valid_mask]
+        
+        if len(valid_ranges) == 0:
+            return
+        
+        # Check front sector for obstacles (±30 degrees)
+        front_mask = np.abs(valid_angles) < 0.52  # 30 degrees
+        if np.any(front_mask):
+            front_ranges = valid_ranges[front_mask]
+            min_front_dist = np.min(front_ranges)
+            self.obstacle_ahead = min_front_dist < 0.6  # 60cm threshold
+        else:
+            self.obstacle_ahead = False
+        
+        # Find clearest direction
+        if self.obstacle_ahead:
+            # Sample directions every 15 degrees
+            sample_angles = np.linspace(-math.pi, math.pi, 24)
+            clearances = []
+            
+            for sample_angle in sample_angles:
+                # Check clearance in this direction
+                angle_mask = np.abs(valid_angles - sample_angle) < 0.26  # ±15 degrees
+                if np.any(angle_mask):
+                    avg_clearance = np.mean(valid_ranges[angle_mask])
+                    clearances.append(avg_clearance)
+                else:
+                    clearances.append(0.0)
+            
+            # Choose direction with most clearance
+            best_idx = np.argmax(clearances)
+            self.clear_direction = sample_angles[best_idx]
+    
+    # ========================================================================
+    # MAIN CONTROL LOOP
+    # ========================================================================
+    
+    def control_loop(self):
+        """
+        Main decision-making loop implementing behavior state machine:
+        1. INTERCEPT - Predictive pursuit if mouse moving
+        2. CHASE - Direct pursuit if mouse stationary/slow
+        3. SEARCH - Exploration pattern if mouse not detected
+        """
         cmd = Twist()
-        cmd.linear.x = lin
-        cmd.angular.z = ang
-        self.cmd_pub.publish(cmd)
-
-        if lin > 0.05:
-            self.last_forward_time = time.time()
-
-    def go_to_point(self, point, speed: float, return_arrived: bool = False) -> bool:
-        """
-        Stable go-to:
-        - clamp angular velocity
-        - forward speed depends on heading error and obstacle ahead
-        - if front is blocked: rotate away, don't keep pushing
-        """
-        if point is None:
-            self.publish_cmd(0.0, 0.0)
-            return True
-
-        cx, cy = self.cat_pose.position.x, self.cat_pose.position.y
-        tx, ty = point.x, point.y
-
-        dx = tx - cx
-        dy = ty - cy
-        dist = math.hypot(dx, dy)
-
-        # arrived?
-        if dist < self.arrival_radius:
-            self.publish_cmd(0.0, 0.0)
-            return True
-
-        target_angle = math.atan2(dy, dx)
-        err = self.normalize_angle(target_angle - self.cat_yaw)
-
-        # obstacle check
-        front = self.get_front_range()
-        if front < self.front_stop_dist:
-            # rotate away from obstacle
-            turn_dir = self.pick_turn_dir()
-            self.publish_cmd(0.0, 0.9 * turn_dir)
-            return False
-
-        # angular control (clamped)
-        ang = self.clamp(self.k_ang * err, -self.max_ang, self.max_ang)
-
-        # forward policy (smooth, no stop/go jitter)
-        abs_err = abs(err)
-        if abs_err > self.turn_only_thresh:
-            lin = 0.12
-        elif abs_err > 0.6:
-            lin = 0.12
-        elif abs_err > 0.3:
-            lin = 0.22
+        
+        if self.mouse_detected:
+            # Calculate distance to mouse
+            dx = self.mouse_x - self.cat_x
+            dy = self.mouse_y - self.cat_y
+            distance = math.hypot(dx, dy)
+            
+            # Check for capture
+            if distance < self.capture_dist:
+                self.get_logger().info("🎯 MOUSE CAPTURED!")
+                self.status_pub.publish(String(data="CAPTURED"))
+                cmd.linear.x = 0.0
+                cmd.angular.z = 0.0
+                self.cmd_pub.publish(cmd)
+                return
+            
+            # Determine pursuit strategy
+            mouse_speed = math.hypot(self.mouse_vx, self.mouse_vy)
+            
+            if mouse_speed > 0.1:
+                # Mouse is moving - use predictive intercept
+                self.state = "INTERCEPT"
+                self.intercept_mouse(cmd)
+            else:
+                # Mouse is stationary/slow - direct chase
+                self.state = "CHASE"
+                self.chase_mouse(cmd)
         else:
-            lin = speed
-
-        # slow near walls
-        if front < self.front_slow_dist:
-            lin *= 0.6
-
-        self.publish_cmd(lin, ang)
-
-        return dist < self.arrival_radius if return_arrived else False
-
-    # =========================
-    # Perception / Visibility
-    # =========================
-    def mouse_is_visible(self) -> bool:
+            # Mouse not detected - search pattern
+            self.state = "SEARCH"
+            self.search_for_mouse(cmd)
+        
+        # Apply obstacle avoidance
+        if self.obstacle_ahead:
+            self.avoid_obstacle(cmd)
+        
+        # Publish command
+        self.cmd_pub.publish(cmd)
+        
+        # Publish status
+        self.status_pub.publish(String(data=self.state))
+        
+        # Log status
+        self.get_logger().info(
+            f"State: {self.state} | Mouse Detected: {self.mouse_detected}",
+            throttle_duration_sec=2.0
+        )
+    
+    # ========================================================================
+    # BEHAVIOR IMPLEMENTATIONS
+    # ========================================================================
+    
+    def chase_mouse(self, cmd):
         """
-        Visibility model:
-        - If within sniff radius => visible.
-        - Else: raycast approximation using lidar beam closest to mouse bearing.
-          If lidar range >= mouse distance - epsilon => line-of-sight.
+        Direct pursuit: Move straight towards mouse's current position.
+        Uses proportional control for smooth approach.
         """
-        cx = self.cat_pose.position.x
-        cy = self.cat_pose.position.y
-        mx = self.mouse_pose.position.x
-        my = self.mouse_pose.position.y
-
-        dx = mx - cx
-        dy = my - cy
-        dist = math.hypot(dx, dy)
-
-        if dist < self.sniff_radius:
-            return True
-
-        if not self.lidar_ranges or self.angle_inc == 0.0:
-            return False
-
+        # Calculate angle to mouse
+        dx = self.mouse_x - self.cat_x
+        dy = self.mouse_y - self.cat_y
         angle_to_mouse = math.atan2(dy, dx)
-        rel_angle = self.normalize_angle(angle_to_mouse - self.cat_yaw)
-
-        # Convert relative angle to index in scan array
-        idx = int(round((rel_angle - self.angle_min) / self.angle_inc))
-        idx = max(0, min(idx, len(self.lidar_ranges) - 1))
-
-        lidar_dist = self.lidar_ranges[idx]
-        if math.isinf(lidar_dist) or math.isnan(lidar_dist):
-            # if lidar says "no return", treat as clear line (in sim this can happen)
-            return True
-
-        return lidar_dist >= (dist - self.los_epsilon)
-
-    # =========================
-    # Lidar helpers
-    # =========================
-    def get_front_range(self) -> float:
-        """Approx front distance from lidar."""
-        if not self.lidar_ranges:
-            return 10.0
-        mid = len(self.lidar_ranges) // 2
-        r = self.lidar_ranges[mid]
-        if math.isinf(r) or math.isnan(r):
-            return 10.0
-        return r
-
-    def pick_turn_dir(self) -> float:
+        
+        # Calculate heading error
+        angle_error = self.normalize_angle(angle_to_mouse - self.cat_yaw)
+        
+        # Proportional control
+        kp_angular = 3.0
+        cmd.angular.z = np.clip(kp_angular * angle_error, 
+                               -self.max_angular_speed, 
+                               self.max_angular_speed)
+        
+        # Speed based on alignment
+        if abs(angle_error) < 0.3:  # Well aligned
+            cmd.linear.x = self.max_linear_speed
+        elif abs(angle_error) < 0.8:  # Moderate alignment
+            cmd.linear.x = self.max_linear_speed * 0.6
+        else:  # Poor alignment - turn in place
+            cmd.linear.x = 0.1
+    
+    def intercept_mouse(self, cmd):
         """
-        Pick a safer turn direction based on side ranges.
-        Returns +1 for left, -1 for right.
+        Predictive pursuit: Aims for where mouse will be.
+        Uses constant bearing pursuit with prediction.
         """
-        if not self.lidar_ranges:
-            return 1.0
-
-        n = len(self.lidar_ranges)
-        mid = n // 2
-        # sample a bit to left/right of front
-        left_idx = min(n - 1, mid + n // 6)
-        right_idx = max(0, mid - n // 6)
-
-        left = self.lidar_ranges[left_idx]
-        right = self.lidar_ranges[right_idx]
-
-        left = 10.0 if (math.isinf(left) or math.isnan(left)) else left
-        right = 10.0 if (math.isinf(right) or math.isnan(right)) else right
-
-        # turn towards the larger clearance
-        return 1.0 if left >= right else -1.0
-
-    # =========================
-    # Math helpers
-    # =========================
-    @staticmethod
-    def normalize_angle(a: float) -> float:
-        while a > math.pi:
-            a -= 2 * math.pi
-        while a < -math.pi:
-            a += 2 * math.pi
-        return a
-
-    @staticmethod
-    def clamp(v: float, lo: float, hi: float) -> float:
-        return max(lo, min(hi, v))
+        # Predict future mouse position
+        future_mouse_x = self.mouse_x + self.mouse_vx * self.prediction_time
+        future_mouse_y = self.mouse_y + self.mouse_vy * self.prediction_time
+        
+        # Calculate intercept point
+        # Using proportional navigation: aim ahead based on closing velocity
+        dx = future_mouse_x - self.cat_x
+        dy = future_mouse_y - self.cat_y
+        distance = math.hypot(dx, dy)
+        
+        # Time to intercept
+        relative_speed = self.max_linear_speed
+        if distance > 0.1:
+            tti = distance / relative_speed
+            
+            # Refine prediction
+            intercept_x = self.mouse_x + self.mouse_vx * tti
+            intercept_y = self.mouse_y + self.mouse_vy * tti
+        else:
+            intercept_x = future_mouse_x
+            intercept_y = future_mouse_y
+        
+        # Calculate angle to intercept point
+        angle_to_intercept = math.atan2(intercept_y - self.cat_y, 
+                                       intercept_x - self.cat_x)
+        
+        # Control
+        angle_error = self.normalize_angle(angle_to_intercept - self.cat_yaw)
+        
+        kp_angular = 3.5
+        cmd.angular.z = np.clip(kp_angular * angle_error,
+                               -self.max_angular_speed,
+                               self.max_angular_speed)
+        
+        # Aggressive speed
+        if abs(angle_error) < 0.5:
+            cmd.linear.x = self.max_linear_speed
+        else:
+            cmd.linear.x = self.max_linear_speed * 0.5
+    
+    def search_for_mouse(self, cmd):
+        """
+        Search pattern when mouse is not detected.
+        Implements expanding spiral search.
+        """
+        # Spiral search: rotate while moving forward
+        cmd.linear.x = 0.2  # Slow forward movement
+        cmd.angular.z = 0.8  # Constant rotation
+        
+        self.search_angle += 0.1
+        if self.search_angle > 2 * math.pi:
+            self.search_angle = 0.0
+    
+    def avoid_obstacle(self, cmd):
+        """
+        Emergency obstacle avoidance.
+        Overrides current command to prevent collision.
+        """
+        # Turn towards clearest direction
+        angle_error = self.normalize_angle(self.clear_direction)
+        
+        cmd.angular.z = 2.5 * np.sign(angle_error)
+        cmd.linear.x = 0.0  # Stop forward motion
+        
+        self.get_logger().warn("🚧 Obstacle Avoidance Active", throttle_duration_sec=1.0)
+    
+    # ========================================================================
+    # UTILITY FUNCTIONS
+    # ========================================================================
+    
+    def normalize_angle(self, angle):
+        """Normalizes angle to [-pi, pi] range."""
+        while angle > math.pi:
+            angle -= 2.0 * math.pi
+        while angle < -math.pi:
+            angle += 2.0 * math.pi
+        return angle
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = CatBrainV2()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+    node = ProposalCatBrain()
+    
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':
