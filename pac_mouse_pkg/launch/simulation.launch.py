@@ -26,7 +26,7 @@ def generate_launch_description():
     ekf_config       = os.path.join(pkg_share, 'config', 'ekf.yaml')
     slam_config      = os.path.join(pkg_share, 'config', 'slam_params.yaml')
     rviz_config      = os.path.join(pkg_share, 'rviz', 'mouse_view.rviz')
-    world_file       = os.path.join(pkg_share, 'worlds', 'maze_v3.sdf')
+    world_file       = os.path.join(pkg_share, 'worlds', 'maze_v3_scaled_1.5.sdf')
 
     # ========================================================================
     # 2. PROCESS URDFs (XACRO)
@@ -64,7 +64,7 @@ def generate_launch_description():
 
     spawn_cat = Node(
         package='ros_gz_sim', executable='create',
-        arguments=['-string', cat_xml, '-name', 'cat', '-x', '3.0', '-y', '3.0', '-z', '0.1'],
+        arguments=['-string', cat_xml, '-name', 'cat', '-x', '4.0', '-y', '4.0', '-z', '0.1'],
         output='screen'
     )
 
