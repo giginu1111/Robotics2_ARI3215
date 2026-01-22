@@ -213,7 +213,7 @@ class HybridMouse(Node):
     # ==========================================================
     def spin_to_find_new(self):
         cmd = Twist()
-        cmd.angular.z = 0.4
+        cmd.angular.z = 2.0
         self.cmd_pub.publish(cmd)
 
     def detect_frontiers(self):
