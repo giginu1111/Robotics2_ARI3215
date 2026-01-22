@@ -348,7 +348,7 @@ def generate_launch_description():
     # ========================================================================
     # Phase 1: Start Gazebo and wait for /clock topic (5s)
     phase_1 = TimerAction(
-        period=5.0,
+        period=20.0,
         actions=[
             spawn_mouse,
             spawn_cat,
@@ -360,7 +360,7 @@ def generate_launch_description():
     
     # Phase 2: Start localization and visualization (10s)
     phase_2 = TimerAction(
-        period=10.0,
+        period=30.0,
         actions=[
             mouse_ekf,
             mouse_lidar_tf,
@@ -372,7 +372,7 @@ def generate_launch_description():
     
     # Phase 3: Start navigation stack (15s)
     phase_3 = TimerAction(
-        period=15.0,
+        period=40.0,
         actions=[
             controller_server,
             planner_server,
@@ -384,7 +384,7 @@ def generate_launch_description():
     
     # Phase 4: Start AI controllers (20s)
     phase_4 = TimerAction(
-        period=20.0,
+        period=50.0,
         actions=[
             game_master,
             mouse_brain,
