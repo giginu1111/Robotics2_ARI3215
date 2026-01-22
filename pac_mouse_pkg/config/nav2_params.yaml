@@ -35,36 +35,45 @@ controller_server:
       stateful: True
 
     # ====================================================================
-    # 🔥 NUCLEAR OPTION - TELEOP-SPEED TANK TURNS 🔥
+    # SMOOTH CORNERING + FAST TANK TURNS (Best of Both Worlds!)
     # ====================================================================
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       
-      # Linear speed
+      # Speed settings
       desired_linear_vel: 0.8
-      lookahead_dist: 0.6
-      min_lookahead_dist: 0.3
+      lookahead_dist: 1.0                      # 🔧 INCREASED for smoother paths
+      min_lookahead_dist: 0.5                  # 🔧 INCREASED 
+      max_lookahead_dist: 1.5                  # 🔧 ADDED - prevents jerky motion
+      use_velocity_scaled_lookahead_dist: true # 🔧 Dynamic lookahead
+      lookahead_time: 1.5                      # 🔧 Look ahead in time
+      
       min_approach_linear_velocity: 0.05
       approach_velocity_scaling_dist: 0.6
-      use_velocity_scaled_lookahead_dist: false
       
-      # ⚡⚡⚡ MAXIMUM ROTATION - TELEOP SPEED! ⚡⚡⚡
+      # ⚡ TANK TURN ONLY FOR BIG TURNS (>90°) ⚡
       use_rotate_to_heading: true
-      rotate_to_heading_min_angle: 0.26        # Turn for ANY angle > 15°
-      rotate_to_heading_angular_vel: 6.0       # 🚀 BLAZING FAST! (343°/s)
-      max_angular_accel: 10.0                  # 🚀 INSTANT spin-up
+      rotate_to_heading_min_angle: 1.57        # 🔧 90° - only tank turn for sharp corners!
+      rotate_to_heading_angular_vel: 12.0       # Still FAST when it does tank turn
+      max_angular_accel: 20.0
       
-      # Allow rotation at ANY speed (don't slow down for turns)
+      # Allow turning WHILE driving (smooth cornering)
       allow_reversing: false
-      use_interpolation: false
+      max_angular_velocity_in_translation: 4.0  # 🔧 Turn while moving forward!
       
-      # Cost regulation - MINIMAL interference
-      use_collision_detection: false           # Don't slow down for obstacles during rotation
-      use_cost_regulated_linear_velocity_scaling: false  # No speed reduction
+      # Path following behavior
+      use_interpolation: true                   # 🔧 Smooth interpolation
+      use_collision_detection: true
+      use_cost_regulated_linear_velocity_scaling: true
+      cost_scaling_dist: 0.6
+      cost_scaling_gain: 1.0
+      inflation_cost_scaling_factor: 3.0
+      regulated_linear_scaling_min_radius: 0.9
+      regulated_linear_scaling_min_speed: 0.25
       
-      # Timeouts
+      # Transform and timing
       transform_tolerance: 0.2
-      max_robot_pose_search_dist: 10.0
+      max_allowed_time_to_collision_up_to_carrot: 1.0
 
 local_costmap:
   local_costmap:
