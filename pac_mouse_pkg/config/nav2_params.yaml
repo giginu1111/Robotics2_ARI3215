@@ -38,7 +38,7 @@ controller_server:
     # FAST MOUSE CONTROLLER - CORRECTED FOR RESPONSIVE TURNING
     # ====================================================================
     FollowPath:
-      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPursPursuitController"
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       
       # Speed settings
       desired_linear_vel: 0.8           # Target forward speed
