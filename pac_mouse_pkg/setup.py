@@ -61,6 +61,7 @@ setup(
             'game_master = pac_mouse_pkg.game_master:main',
             'mouse_navigator = pac_mouse_pkg.mouse_navigator:main',
             'explorer_mouse = pac_mouse_pkg.explorer_mouse:main',
+            'hybrid_explorer_mouse = pac_mouse_pkg.hybrid_explorer_mouse:main',
         ],
     },
 )
