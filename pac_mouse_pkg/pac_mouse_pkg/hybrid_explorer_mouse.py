@@ -9,6 +9,7 @@ from nav_msgs.msg import Odometry, OccupancyGrid
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import String
 from cv_bridge import CvBridge
+from rclpy.parameter import Parameter
 import cv2
 import numpy as np
 import math
@@ -19,15 +20,15 @@ import time
 
 class HybridMouse(Node):
     def __init__(self):
-        super().__init__('hybrid_mouse')
+        super().__init__('hybrid_mouse', 
+                         parameter_overrides=[Parameter('use_sim_time', value=True)])
 
         # ==========================================================
         # 1. NAVIGATION & COMMUNICATION
         # ==========================================================
         self._action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         
-        # NOTE: Verify if your robot listens to /cmd_vel or /mouse/cmd_vel
-        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10) 
+        self.cmd_pub = self.create_publisher(Twist, '/mouse/cmd_vel', 10) 
         self.pub_score = self.create_publisher(String, '/cheese_eaten', 10)
 
         # ==========================================================
@@ -303,7 +304,7 @@ class HybridMouse(Node):
     # ==========================================================
     def send_nav_goal(self, point):
         goal_msg = NavigateToPose.Goal()
-        goal_msg.pose.header.frame_id = 'mouse/odom' 
+        goal_msg.pose.header.frame_id = 'map' 
         goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
         
         goal_msg.pose.pose.position.x = point[0]
@@ -398,8 +399,7 @@ class HybridMouse(Node):
         markers = MarkerArray()
         if frontiers_list:
             m = Marker()
-            # FRAME FIX: Markers must match the frame of the coordinates (odom)
-            m.header.frame_id = "mouse/odom" 
+            m.header.frame_id = "map" 
             m.id = 0; m.type = Marker.POINTS; m.action = Marker.ADD
             m.scale.x = m.scale.y = 0.1
             m.color.a = 1.0; m.color.r = 1.0; m.color.g = 0.0
