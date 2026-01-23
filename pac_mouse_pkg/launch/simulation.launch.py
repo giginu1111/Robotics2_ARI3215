@@ -248,17 +248,31 @@ def generate_launch_description():
         cmd=['gnome-terminal', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg game_master; exec bash'],
         output='screen'
     )
-    
+
     mouse_brain_cmd = ExecuteProcess(
         cmd=['gnome-terminal', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg hybrid_explorer_mouse; exec bash'],
         output='screen'
     )
-    
+
     cat_brain_cmd = ExecuteProcess(
         cmd=['gnome-terminal', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg cat_brain; exec bash'],
         output='screen'
     )
-    
+    # Create a single Terminator window with 3 horizontal splits
+    multi_window_cmd = ExecuteProcess(
+        cmd=[
+            'bash', '-c',
+            'tmux new-session -d -s pac_mouse "ros2 run pac_mouse_pkg game_master; bash" \\; '
+            'split-window -v "ros2 run pac_mouse_pkg hybrid_explorer_mouse; bash" \\; '
+            'split-window -v "ros2 run pac_mouse_pkg cat_brain; bash" \\; '
+            'select-layout even-vertical \\; '
+            'attach'
+        ],
+        output='screen'
+    )
+
+
+
 
 
     # ========================================================================
@@ -300,9 +314,10 @@ def generate_launch_description():
             #mouse_brain,
             #cat_brain
             #,
-            game_master_cmd,
-            mouse_brain_cmd,
-            cat_brain_cmd
+            #game_master_cmd,
+            #mouse_brain_cmd,
+            #cat_brain_cmd
+            multi_window_cmd
         ]
     )
 
