@@ -434,7 +434,7 @@ class ProposalMouseBrain(Node):
                         return
                 
                 # Standard reactive escape
-                turn_speed = 5.0 if self.cat_distance < self.cat_critical_distance else 3.0
+                turn_speed = 8.0 if self.cat_distance < self.cat_critical_distance else 5.0
                 cmd.angular.z = turn_speed * np.sign(escape_angle_rel)
                 
                 if abs(escape_angle_rel) < 0.5:
@@ -560,7 +560,7 @@ class ProposalMouseBrain(Node):
         
         # No frontiers - rotate to search
         cmd = Twist()
-        cmd.angular.z = 1.5
+        cmd.angular.z = 3.0
         self.cmd_pub.publish(cmd)
     
     def detect_frontiers(self):
