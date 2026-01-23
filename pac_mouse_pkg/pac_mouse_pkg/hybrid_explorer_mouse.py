@@ -109,7 +109,8 @@ class HybridMouse(Node):
         # We look up the transform from 'map' to the robot's base link
         # This is the "True" position corrected by SLAM
             start_time = self.get_clock().now()
-            now = rclpy.time.Time()
+            now = self.get_clock().now()
+
             trans = self.tf_buffer.lookup_transform('map', 'mouse/base_link', now, 
                                                 timeout=rclpy.duration.Duration(seconds=0.1))
         
@@ -152,6 +153,12 @@ class HybridMouse(Node):
         self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
 
     def scan_callback(self, msg):
+
+        if abs(self.robot_x) < 0.01 and abs(self.robot_y) < 0.01:
+            self.get_logger().warn("⚠️ Scan ignored: robot pose not initialized")
+            return
+
+
     # 1. Get the latest Map-to-Base transform so the scan is placed correctly
         if not self.update_pose_from_tf():
             return
@@ -215,6 +222,11 @@ class HybridMouse(Node):
     # MAIN BRAIN LOOP
     # ==========================================================
     def brain_loop(self):
+
+        if not self.update_pose_from_tf():
+            self.get_logger().warn("⛔ Skipping brain loop: no TF pose")
+            return
+
         """
         Main 10Hz Control Loop.
         Handles state transitions between Cheese Chasing and Frontier Exploration.
@@ -282,6 +294,9 @@ class HybridMouse(Node):
         else:
             # No frontiers found at all (Map is likely complete or obscured)
             self.get_logger().warn("🗺️ No frontiers found. Performing search spin.")
+            self.spin_to_find_new()
+
+        if not frontiers:
             self.spin_to_find_new()
 
     # ==========================================================
