@@ -39,8 +39,8 @@ controller_server:
     # --- FAST MOUSE CONTROLLER (Regulated Pure Pursuit) ---
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
-      desired_linear_vel: 10.0       # FASTER (0.8 m/s)
-      lookahead_dist: 2.0
+      desired_linear_vel: 5.0       # FASTER (0.8 m/s)
+      lookahead_dist: 1.0
       min_lookahead_dist: 0.5
       rotate_to_heading_lp_gain: 0.5
       transform_tolerance: 0.1
