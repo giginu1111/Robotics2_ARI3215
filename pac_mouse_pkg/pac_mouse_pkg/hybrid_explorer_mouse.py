@@ -15,6 +15,7 @@ FEATURES:
 ✅ COLLISION PREVENTION: Emergency stop/reverse/resume behavior
 ✅ WALL AVOIDANCE: Detects walls blocking cheese pursuit
 ✅ CHEESE MAP CLEARING: Removes cheese from obstacle grid for direct approach
+✅ PRIORITY OVERRIDE: Cancels navigation when cheese detected
 
 BEHAVIORAL STATES:
 CHASE_CHEESE: Visual servoing to visible cheese (with wall detection)
@@ -142,6 +143,7 @@ class ProposalMouseBrain(Node):
         self.get_logger().info("✅ Collision prevention: ACTIVE")
         self.get_logger().info("✅ Wall avoidance during cheese chase: ACTIVE")
         self.get_logger().info("✅ Cheese map clearing: ACTIVE")
+        self.get_logger().info("✅ Priority override: ACTIVE")
     
     def odometry_callback(self, msg):
         """Mouse odometry callback"""
@@ -283,7 +285,7 @@ class ProposalMouseBrain(Node):
             self.get_logger().error(f"Camera error: {e}")
     
     def control_loop(self):
-        """🆕 ENHANCED control loop with collision precaution and wall-aware cheese pursuit"""
+        """🆕 ENHANCED control loop with CHEESE PRIORITY over navigation"""
         cmd = Twist()
         current_time = self.get_clock().now().nanoseconds / 1e9
         
@@ -340,6 +342,11 @@ class ProposalMouseBrain(Node):
         # PRIORITY 1: FLEE FROM CAT
         # ====================================================================
         if self.cat_detected:
+            # Cancel any navigation when fleeing
+            if self.is_navigating and self.nav_goal_handle:
+                self.nav_goal_handle.cancel_goal_async()
+                self.is_navigating = False
+            
             urgency = "CRITICAL" if self.cat_distance < self.cat_critical_distance else "WARNING"
             self.get_logger().warn(
                 f"😱 CAT {urgency}! Distance: {self.cat_distance:.2f}m", 
@@ -366,9 +373,16 @@ class ProposalMouseBrain(Node):
             return
         
         # ====================================================================
-        # 🆕 PRIORITY 2: CHASE CHEESE WITH IMPROVED LOGIC
+        # 🆕 PRIORITY 2: CHASE CHEESE (HIGHEST PRIORITY!)
         # ====================================================================
         if self.cheese_visible:
+            # 🚨 CRITICAL FIX: Cancel any active navigation when cheese is detected!
+            if self.is_navigating:
+                self.get_logger().info("🧀 CHEESE DETECTED - CANCELING NAV2 GOAL!")
+                if self.nav_goal_handle:
+                    self.nav_goal_handle.cancel_goal_async()
+                self.is_navigating = False
+            
             # Always clear the cheese area from map when visible
             self.clear_cheese_area_from_map()
             
@@ -430,7 +444,7 @@ class ProposalMouseBrain(Node):
             return
         
         # ====================================================================
-        # PRIORITY 3: NAVIGATE
+        # PRIORITY 3: NAVIGATE (Only if no cheese visible!)
         # ====================================================================
         if self.is_navigating:
             return
