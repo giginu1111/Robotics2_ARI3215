@@ -14,6 +14,7 @@ FEATURES:
 ✅ Adaptive Behavior: Switches strategies based on context
 ✅ COLLISION PREVENTION: Emergency stop/reverse/resume behavior
 ✅ WALL AVOIDANCE: Detects walls blocking cheese pursuit
+✅ CHEESE MAP CLEARING: Removes cheese from obstacle grid for direct approach
 
 BEHAVIORAL STATES:
 CHASE_CHEESE: Visual servoing to visible cheese (with wall detection)
@@ -140,6 +141,7 @@ class ProposalMouseBrain(Node):
         self.get_logger().info("🐭 ENHANCED MOUSE BRAIN: ONLINE")
         self.get_logger().info("✅ Collision prevention: ACTIVE")
         self.get_logger().info("✅ Wall avoidance during cheese chase: ACTIVE")
+        self.get_logger().info("✅ Cheese map clearing: ACTIVE")
     
     def odometry_callback(self, msg):
         """Mouse odometry callback"""
@@ -215,8 +217,36 @@ class ProposalMouseBrain(Node):
             if self.is_valid_grid_cell(gx, gy):
                 self.occupancy_grid[gx, gy] = 100
     
+    def clear_cheese_area_from_map(self):
+        """🆕 Clear detected cheese location from occupancy grid to allow approach"""
+        if not self.cheese_visible or self.min_obstacle_distance == float('inf'):
+            return
+        
+        # Estimate cheese position in world coordinates
+        cheese_angle = -self.cheese_error * 0.001  # Rough pixel-to-angle conversion
+        cheese_distance = max(self.min_obstacle_distance, 0.5)
+        
+        # Calculate cheese world position
+        cheese_x = self.robot_x + cheese_distance * math.cos(self.robot_yaw + cheese_angle)
+        cheese_y = self.robot_y + cheese_distance * math.sin(self.robot_yaw + cheese_angle)
+        
+        # Convert to grid
+        gx, gy = self.world_to_grid(cheese_x, cheese_y)
+        
+        # Clear a circular area around the cheese (radius ~0.5m)
+        clear_radius = int(0.5 / self.resolution)  # ~3 cells at 0.15m resolution
+        
+        for dx in range(-clear_radius, clear_radius + 1):
+            for dy in range(-clear_radius, clear_radius + 1):
+                if dx*dx + dy*dy <= clear_radius*clear_radius:  # Circular clearance
+                    nx, ny = gx + dx, gy + dy
+                    if self.is_valid_grid_cell(nx, ny):
+                        # Mark as free space, not obstacle
+                        if self.occupancy_grid[nx, ny] == 100:
+                            self.occupancy_grid[nx, ny] = 0
+    
     def camera_callback(self, msg):
-        """Camera callback for cheese detection"""
+        """Camera callback for cheese detection with occupancy grid clearing"""
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
@@ -242,6 +272,9 @@ class ProposalMouseBrain(Node):
                         self.cheese_error = cx - image_center_x
                         self.cheese_area = area
                         self.cheese_visible = True
+                        
+                        # 🆕 CRITICAL: Clear cheese from occupancy grid!
+                        self.clear_cheese_area_from_map()
                         return
             
             self.cheese_visible = False
@@ -333,40 +366,68 @@ class ProposalMouseBrain(Node):
             return
         
         # ====================================================================
-        # 🆕 PRIORITY 2: CHASE CHEESE WITH WALL AVOIDANCE
+        # 🆕 PRIORITY 2: CHASE CHEESE WITH IMPROVED LOGIC
         # ====================================================================
         if self.cheese_visible:
-            # 🆕 Check if wall is blocking path to cheese
-            if self.min_obstacle_distance < 0.8:
-                self.get_logger().warn(
-                    f"🧀 Cheese visible but WALL BLOCKING (dist: {self.min_obstacle_distance:.2f}m) - Using Nav2",
-                    throttle_duration_sec=2.0
-                )
-                # Switch to Nav2 navigation if not already navigating
-                if not self.is_navigating:
-                    # Estimate cheese position
-                    cheese_distance = self.estimate_cheese_distance()
-                    cheese_angle = -self.cheese_error * 0.001  # Convert pixel error to angle
-                    cheese_x = self.robot_x + cheese_distance * math.cos(self.robot_yaw + cheese_angle)
-                    cheese_y = self.robot_y + cheese_distance * math.sin(self.robot_yaw + cheese_angle)
-                    self.send_navigation_goal((cheese_x, cheese_y))
-                return
+            # Always clear the cheese area from map when visible
+            self.clear_cheese_area_from_map()
             
-            # Direct visual servoing if path is clear
+            # Check if we're very close to eating it
             if self.cheese_area > self.cheese_threshold:
                 self.get_logger().info("🧀 EATING CHEESE!")
                 self.cmd_pub.publish(Twist())
                 self.collect_cheese()
                 return
-            else:
-                kp_angular = 0.005
-                cmd.angular.z = -kp_angular * self.cheese_error
-                if abs(self.cheese_error) < 30:
-                    cmd.linear.x = min(self.linear_speed, 0.5)
-                else:
-                    cmd.linear.x = 0.1
-                self.cmd_pub.publish(cmd)
+            
+            # 🆕 IMPROVED: Use direct visual servoing unless REALLY blocked
+            # Only switch to Nav2 if obstacle is very close AND not aligned with cheese
+            cheese_angle_error = abs(self.cheese_error)
+            obstacle_is_cheese = (self.min_obstacle_distance < 1.5 and cheese_angle_error < 50)
+            
+            if self.min_obstacle_distance < 0.5 and not obstacle_is_cheese:
+                # There's a wall/obstacle between us and cheese (not the cheese itself)
+                self.get_logger().warn(
+                    f"⚠️ WALL blocking cheese path (dist: {self.min_obstacle_distance:.2f}m) - Using Nav2",
+                    throttle_duration_sec=2.0
+                )
+                if not self.is_navigating:
+                    # Estimate cheese position for Nav2
+                    cheese_distance = self.estimate_cheese_distance()
+                    cheese_angle = -self.cheese_error * 0.001
+                    cheese_x = self.robot_x + cheese_distance * math.cos(self.robot_yaw + cheese_angle)
+                    cheese_y = self.robot_y + cheese_distance * math.sin(self.robot_yaw + cheese_angle)
+                    
+                    # Clear the goal area too
+                    gx, gy = self.world_to_grid(cheese_x, cheese_y)
+                    clear_radius = int(0.6 / self.resolution)
+                    for dx in range(-clear_radius, clear_radius + 1):
+                        for dy in range(-clear_radius, clear_radius + 1):
+                            nx, ny = gx + dx, gy + dy
+                            if self.is_valid_grid_cell(nx, ny):
+                                self.occupancy_grid[nx, ny] = 0
+                    
+                    self.send_navigation_goal((cheese_x, cheese_y))
                 return
+            
+            # Direct visual servoing - path is clear or obstacle IS the cheese
+            self.get_logger().info(
+                f"🧀 Direct approach: area={self.cheese_area:.0f}, error={self.cheese_error:.0f}, dist={self.min_obstacle_distance:.2f}m",
+                throttle_duration_sec=1.0
+            )
+            
+            kp_angular = 0.005
+            cmd.angular.z = -kp_angular * self.cheese_error
+            
+            # Slow down as we get closer
+            if self.cheese_area > 20000:  # Very close
+                cmd.linear.x = 0.15
+            elif abs(self.cheese_error) < 30:  # Well-aligned
+                cmd.linear.x = 0.4
+            else:  # Need to turn
+                cmd.linear.x = 0.1
+            
+            self.cmd_pub.publish(cmd)
+            return
         
         # ====================================================================
         # PRIORITY 3: NAVIGATE
