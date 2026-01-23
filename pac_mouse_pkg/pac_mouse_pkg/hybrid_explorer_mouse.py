@@ -66,8 +66,8 @@ class ProposalMouseBrain(Node):
         self.resolution = 0.15
         
         # Cat detection settings
-        self.cat_danger_distance = 2.0  # Cat must be within 2m to trigger flee
-        self.cat_critical_distance = 1.0  # Urgent flee if cat within 1m
+        self.cat_danger_distance = 4.0  # Cat must be within 4m to trigger flee
+        self.cat_critical_distance = 2.0  # Urgent flee if cat within 2m
         
         # 🆕 OBSTACLE COLLISION PREVENTION SETTINGS
         self.obstacle_danger_distance = 0.35  # Stop if obstacle within 35cm
@@ -362,12 +362,12 @@ class ProposalMouseBrain(Node):
             escape_angle_rel = self.normalize_angle(escape_angle_world - self.robot_yaw)
             
             # Faster turning if cat is very close
-            turn_speed = 5.0 if self.cat_distance < self.cat_critical_distance else 3.0
+            turn_speed = 6.0 if self.cat_distance < self.cat_critical_distance else 3.0
             cmd.angular.z = turn_speed * np.sign(escape_angle_rel)
             
             # Move forward if roughly aligned with escape direction
             if abs(escape_angle_rel) < 0.5:
-                cmd.linear.x = 0.5 if self.cat_distance < self.cat_critical_distance else 0.4
+                cmd.linear.x = 1.0 if self.cat_distance < self.cat_critical_distance else 2.0 # Faster speed when very close
             else:
                 cmd.linear.x = 0.15
             
