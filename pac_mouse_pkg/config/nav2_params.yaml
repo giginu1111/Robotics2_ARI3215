@@ -56,7 +56,7 @@ controller_server:
       
       # Allow rotation at ANY speed (don't slow down for turns)
       allow_reversing: false
-      use_interpolation: true
+      use_interpolation: false
       
       # Cost regulation - MINIMAL interference
       use_collision_detection: false           # Don't slow down for obstacles during rotation
