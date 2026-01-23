@@ -88,8 +88,8 @@ class CatBrainV2(Node):
         self.turn_only_thresh = 1.0
 
         # --- Option A: Clearance-based avoidance ---
-        self.avoid_dist = 0.30           # HARD rule: do not drive toward space < 0.30m
-        self.slow_dist = 0.65            # start slowing down if anything is within this
+        self.avoid_dist = 0.45           # HARD rule: do not drive toward space < 0.30m
+        self.slow_dist = 0.75            # start slowing down if anything is within this
         self.front_window_deg = 30.0     # "front" window for speed limiting
         self.goal_blend = 0.65           # weight on goal vs free-space (0..1). Higher = more aggressive chase
         self.escape_goal_blend = 0.35    # in ESCAPE, prefer free space more to avoid wall pinning
@@ -442,7 +442,7 @@ class CatBrainV2(Node):
         If the ray (and nearby rays) in that direction are below avoid_dist, treat as forbidden.
         Using a small angular window makes this robust.
         """
-        d = self.get_min_range_in_window(center_angle=rel_angle, half_width_deg=10.0)
+        d = self.get_min_range_in_window(center_angle=rel_angle, half_width_deg=22.0)
         return d < self.avoid_dist
 
     def get_min_range_in_window(self, center_angle: float, half_width_deg: float) -> float:
