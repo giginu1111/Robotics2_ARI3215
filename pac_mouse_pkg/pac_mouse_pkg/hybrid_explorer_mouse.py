@@ -54,8 +54,8 @@ class ProposalMouseBrain(Node):
         # ====================================================================
         # CONFIGURATION
         # ====================================================================
-        self.linear_speed = 0.3
-        self.angular_speed = 0.5
+        self.linear_speed = 2.0
+        self.angular_speed = 2.0
         self.cheese_threshold = 50000
         self.resolution = 0.15
         
@@ -212,6 +212,8 @@ class ProposalMouseBrain(Node):
                 if area > 100:
                     M = cv2.moments(largest_contour)
                     if M["m00"] > 0:
+                        if self.cheese_visible == False:
+                            self.get_logger().info("🧀 Cheese spotted!")
                         cx = int(M["m10"] / M["m00"])
                         image_center_x = cv_image.shape[1] / 2
                         
@@ -264,12 +266,13 @@ class ProposalMouseBrain(Node):
                 self.collect_cheese()
                 return
             else:
+                # NEED TO ADD WALL COLLISION AVOIDANCE HERE -------------------------------
                 kp_angular = 0.005
                 cmd.angular.z = -kp_angular * self.cheese_error
                 if abs(self.cheese_error) < 50:
                     cmd.linear.x = self.linear_speed
                 else:
-                    cmd.linear.x = 0.1
+                    cmd.linear.x = 2.0
                 self.cmd_pub.publish(cmd)
                 return
         
