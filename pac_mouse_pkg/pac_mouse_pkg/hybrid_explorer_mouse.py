@@ -106,36 +106,30 @@ class HybridMouse(Node):
     # ==========================================================
     def update_pose_from_tf(self):
         try:
-        # We look up the transform from 'map' to the robot's base link
-        # This is the "True" position corrected by SLAM
-            start_time = self.get_clock().now()
-            now = self.get_clock().now()
+        # Use Time(0) to ask for the LATEST available transform 
+        # instead of the specific current clock time.
+            now = rclpy.time.Time() 
 
-            trans = self.tf_buffer.lookup_transform('map', 'mouse/base_link', now)
+            trans = self.tf_buffer.lookup_transform(
+                'map', 
+                'mouse/base_link', 
+                now,
+                timeout=rclpy.duration.Duration(seconds=0.05) # Small wait if needed
+            )
         
             self.robot_x = trans.transform.translation.x
             self.robot_y = trans.transform.translation.y
         
-        # Correctly calculate Heading (Yaw)
             q = trans.transform.rotation
             siny_cosp = 2 * (q.w * q.z + q.x * q.y)
             cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
             self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
-
-            duration = (self.get_clock().now() - start_time).nanoseconds / 1e6 # ms
-            if duration > 50: # If lookup takes more than 50ms, warn the user
-                self.get_logger().warn(f"⏱️ TF Lookup Latency high: {duration:.2f}ms")
-
             return True
        
-        # This happens at startup before SLAM is ready
-        except tf2_ros.LookupException:
-                self.get_logger().error("❌ TF Error: Transform map -> base_link not found.")
-        except tf2_ros.ExtrapolationException:
-                self.get_logger().error("❌ TF Error: Delay too high for transform.")
-        except Exception as e:
-                self.get_logger().warn(f"⏳ Waiting for TF... ({e})")
-        return False
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            # Use throttled logging so your terminal isn't flooded
+            self.get_logger().warn(f"⏳ Waiting for valid TF: {e}", throttle_duration_sec=2.0)
+            return False
         
 
         
@@ -159,8 +153,8 @@ class HybridMouse(Node):
 
 
     # 1. Get the latest Map-to-Base transform so the scan is placed correctly
-        # if not self.update_pose_from_tf():
-        #     return
+        if not self.update_pose_from_tf():
+            return
 
     # 2. Convert Scan to Numpy arrays for speed
         ranges = np.array(msg.ranges)
