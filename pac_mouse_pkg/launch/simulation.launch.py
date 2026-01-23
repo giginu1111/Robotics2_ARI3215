@@ -244,23 +244,21 @@ def generate_launch_description():
         name='cat_brain',
         output='screen'
     )
-    # 1. Game Master in its own window
     game_master_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Game Master', '-e', 'ros2 run pac_mouse_pkg game_master'],
+        cmd=['gnome-terminal', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg game_master; exec bash'],
         output='screen'
     )
-
-    # 2. Mouse Brain in its own window
+    
     mouse_brain_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Mouse Brain', '-e', 'ros2 run pac_mouse_pkg hybrid_explorer_mouse'],
+        cmd=['gnome-terminal', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg hybrid_explorer_mouse; exec bash'],
         output='screen'
     )
-
-    # 3. Cat Brain in its own window
+    
     cat_brain_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Cat Brain', '-e', 'ros2 run pac_mouse_pkg cat_brain'],
+        cmd=['gnome-terminal', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg cat_brain; exec bash'],
         output='screen'
     )
+    
 
 
     # ========================================================================
