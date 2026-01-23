@@ -260,17 +260,13 @@ def generate_launch_description():
     )
     # Create a single Terminator window with 3 horizontal splits
     multi_window_cmd = ExecuteProcess(
-        cmd=[
-            'xterm', '-hold', '-fa', 'Monospace', '-fs', '10', '-e',
-            'tmux', 'new-session', '-s', 'pac_mouse',
-            'ros2 run pac_mouse_pkg game_master\\; bash', '\\;',
-            'split-window', '-v',
-            'ros2 run pac_mouse_pkg hybrid_explorer_mouse\\; bash', '\\;',
-            'split-window', '-v',
-            'ros2 run pac_mouse_pkg cat_brain\\; bash', '\\;',
-            'select-layout', 'even-vertical'
-        ],
-        output='screen'
+       cmd=[
+           'gnome-terminal',
+           '--tab', '--title=Game Master', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg game_master; exec bash',
+           '--tab', '--title=Mouse Brain', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg hybrid_explorer_mouse; exec bash',
+           '--tab', '--title=Cat Brain', '--', 'bash', '-c', 'ros2 run pac_mouse_pkg cat_brain; exec bash'
+       ],
+       output='screen'
     )
 
 
