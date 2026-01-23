@@ -58,8 +58,8 @@ class GameMaster(Node):
         self.capture_radius = 0.5
         self.total_cheeses = 4
         self.world_name = 'pac_mouse_maze'
-        self.time_limit = 300.0
-        self.encounter_dist = 1.5
+        self.time_limit = 9999.0
+        self.encounter_dist = 2.5
         self.power_mode_enabled = True
         
         # ====================================================================
