@@ -146,8 +146,8 @@ global_costmap:
           
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 8.0
-        inflation_radius: 0.20
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.50
 
 planner_server:
   ros__parameters:
@@ -157,7 +157,7 @@ planner_server:
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
       tolerance: 0.5
-      use_astar: false
+      use_astar: true
       allow_unknown: true
 
 recoveries_server:

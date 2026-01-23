@@ -16,6 +16,7 @@ FEATURES:
 ✅ WALL AVOIDANCE: Detects walls blocking cheese pursuit
 ✅ CHEESE MAP CLEARING: Removes cheese from obstacle grid for direct approach
 ✅ PRIORITY OVERRIDE: Cancels navigation when cheese detected
+✅ FAST CHEESE PURSUIT: High-speed direct approach (0.8 m/s)
 
 BEHAVIORAL STATES:
 CHASE_CHEESE: Visual servoing to visible cheese (with wall detection)
@@ -144,6 +145,7 @@ class ProposalMouseBrain(Node):
         self.get_logger().info("✅ Wall avoidance during cheese chase: ACTIVE")
         self.get_logger().info("✅ Cheese map clearing: ACTIVE")
         self.get_logger().info("✅ Priority override: ACTIVE")
+        self.get_logger().info("🚀 FAST cheese pursuit: ACTIVE (0.8 m/s)")
     
     def odometry_callback(self, msg):
         """Mouse odometry callback"""
@@ -373,7 +375,7 @@ class ProposalMouseBrain(Node):
             return
         
         # ====================================================================
-        # 🆕 PRIORITY 2: CHASE CHEESE (HIGHEST PRIORITY!)
+        # 🚀 PRIORITY 2: CHASE CHEESE - HIGH SPEED MODE!
         # ====================================================================
         if self.cheese_visible:
             # 🚨 CRITICAL FIX: Cancel any active navigation when cheese is detected!
@@ -423,22 +425,25 @@ class ProposalMouseBrain(Node):
                     self.send_navigation_goal((cheese_x, cheese_y))
                 return
             
-            # Direct visual servoing - path is clear or obstacle IS the cheese
+            # 🚀 FAST DIRECT VISUAL SERVOING - path is clear or obstacle IS the cheese
             self.get_logger().info(
-                f"🧀 Direct approach: area={self.cheese_area:.0f}, error={self.cheese_error:.0f}, dist={self.min_obstacle_distance:.2f}m",
+                f"🚀 FAST approach: area={self.cheese_area:.0f}, error={self.cheese_error:.0f}, dist={self.min_obstacle_distance:.2f}m",
                 throttle_duration_sec=1.0
             )
             
-            kp_angular = 0.005
+            # 🔥 MUCH MORE AGGRESSIVE TURNING
+            kp_angular = 0.008  # Increased from 0.005 for faster rotation
             cmd.angular.z = -kp_angular * self.cheese_error
             
-            # Slow down as we get closer
-            if self.cheese_area > 20000:  # Very close
-                cmd.linear.x = 0.15
-            elif abs(self.cheese_error) < 30:  # Well-aligned
-                cmd.linear.x = 0.4
-            else:  # Need to turn
-                cmd.linear.x = 0.1
+            # 🚀 SIGNIFICANTLY FASTER LINEAR SPEEDS
+            if self.cheese_area > 20000:  # Very close - slow down to collect
+                cmd.linear.x = 0.25  # Was 0.15
+            elif abs(self.cheese_error) < 50:  # Well-aligned - GO FAST!
+                cmd.linear.x = 0.8  # 🔥 Was 0.4 - NOW DOUBLED!
+            elif abs(self.cheese_error) < 100:  # Medium alignment
+                cmd.linear.x = 0.5  # Was 0.1 - MUCH faster turn approach
+            else:  # Need to turn more
+                cmd.linear.x = 0.2  # Was 0.1 - still moving while turning
             
             self.cmd_pub.publish(cmd)
             return
