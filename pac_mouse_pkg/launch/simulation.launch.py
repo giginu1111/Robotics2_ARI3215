@@ -246,21 +246,22 @@ def generate_launch_description():
     )
     # 1. Game Master in its own window
     game_master_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Game Master', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'game_master'],
+        cmd=['terminator', '-T', 'Game Master', '-e', 'ros2 run pac_mouse_pkg game_master'],
         output='screen'
     )
 
     # 2. Mouse Brain in its own window
     mouse_brain_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Mouse Brain', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'hybrid_explorer_mouse'],
+        cmd=['terminator', '-T', 'Mouse Brain', '-e', 'ros2 run pac_mouse_pkg hybrid_explorer_mouse'],
         output='screen'
     )
 
     # 3. Cat Brain in its own window
     cat_brain_cmd = ExecuteProcess(
-        cmd=['terminator', '-T', 'Cat Brain', '-x', 'ros2', 'run', 'pac_mouse_pkg', 'cat_brain'],
+        cmd=['terminator', '-T', 'Cat Brain', '-e', 'ros2 run pac_mouse_pkg cat_brain'],
         output='screen'
     )
+
 
     # ========================================================================
     # 9. LAUNCH SEQUENCE
@@ -297,13 +298,13 @@ def generate_launch_description():
     extra_extra_delayed_nodes = TimerAction(
         period=30.0,
         actions=[
-            game_master,
-            mouse_brain,
-            cat_brain
+            #game_master,
+            #mouse_brain,
+            #cat_brain
             #,
-            #game_master_cmd,
-            #mouse_brain_cmd,
-            #cat_brain_cmd
+            game_master_cmd,
+            mouse_brain_cmd,
+            cat_brain_cmd
         ]
     )
 
