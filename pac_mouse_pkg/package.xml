@@ -4,9 +4,39 @@
   <name>pac_mouse_pkg</name>
   <version>0.1.0</version> 
   <description>Autonomous Pac-Mouse simulation with Doraemon Cat and Cheese collection.</description> 
-  <maintainer email="damian.cutajar@gmail.com">giginu</maintainer>
-  <license>Apache-2.0</license> <depend>rclpy</depend>
+  <maintainer email="damian.cutajar@gmail.com">Damian Cutajar</maintainer>
+  <license>Apache-2.0</license>
+  
+  <!-- Core ROS Dependencies -->
+  <depend>rclpy</depend>
   <depend>xacro</depend>
+  
+  <!-- Message/Action Dependencies -->
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>tf2_msgs</depend>
+  <depend>nav2_msgs</depend>
+  
+  <!-- Navigation Stack -->
+  <depend>nav2_bringup</depend>
+  <depend>nav2_common</depend>
+  <depend>slam_toolbox</depend>
+  <depend>robot_localization</depend>
+  
+  <!-- Gazebo -->
+  <depend>ros_gz_sim</depend>
+  <depend>ros_gz_bridge</depend>
+  
+  <!-- Visualization -->
+  <depend>rviz2</depend>
+  <depend>robot_state_publisher</depend>
+  
+  <!-- Python Dependencies (implicit) -->
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
