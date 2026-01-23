@@ -52,7 +52,7 @@ controller_server:
       use_rotate_to_heading: true
       rotate_to_heading_min_angle: 1.57
       rotate_to_heading_angular_vel: 12.0 # FAST ROTATION (1.8 rad/s)
-      max_angular_accel: 40.0
+      max_angular_accel: 10.0
       
       # Safety
       max_allowed_time_to_collision_up_to_carrot: 1.0
