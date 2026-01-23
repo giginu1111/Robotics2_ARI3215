@@ -42,21 +42,21 @@ controller_server:
       
       # Linear speed
       desired_linear_vel: 0.9
-      lookahead_dist: 0.5
+      lookahead_dist: 0.8
       min_lookahead_dist: 0.25
       min_approach_linear_velocity: 0.2
       approach_velocity_scaling_dist: 0.1
-      use_velocity_scaled_lookahead_dist: false
+      use_velocity_scaled_lookahead_dist: true
       
       # ⚡⚡⚡ MAXIMUM ROTATION - TELEOP SPEED! ⚡⚡⚡
       use_rotate_to_heading: true
-      rotate_to_heading_min_angle: 0.30        # Turn for ANY angle > 15°
+      rotate_to_heading_min_angle: 0.35        # Turn for ANY angle > 15°
       rotate_to_heading_angular_vel: 8.0       # 🚀 BLAZING FAST! (343°/s)
-      max_angular_accel: 10.0                  # 🚀 INSTANT spin-up
+      max_angular_accel: 8.0                  # 🚀 INSTANT spin-up
       
       # Allow rotation at ANY speed (don't slow down for turns)
       allow_reversing: false
-      use_interpolation: false
+      use_interpolation: true
       
       # Cost regulation - MINIMAL interference
       use_collision_detection: false           # Don't slow down for obstacles during rotation
