@@ -52,7 +52,7 @@ controller_server:
       use_rotate_to_heading: true
       rotate_to_heading_min_angle: 0.30        # Turn for ANY angle > 15°
       rotate_to_heading_angular_vel: 8.0       # 🚀 BLAZING FAST! (343°/s)
-      max_angular_accel: 15.0                  # 🚀 INSTANT spin-up
+      max_angular_accel: 10.0                  # 🚀 INSTANT spin-up
       
       # Allow rotation at ANY speed (don't slow down for turns)
       allow_reversing: false
@@ -75,18 +75,18 @@ local_costmap:
       robot_base_frame: mouse/base_link
       use_sim_time: True
       rolling_window: true
-      width: 12
-      height: 12
-      origin_x: -6.0
-      origin_y: -6.0
+      width: 10
+      height: 10
+      origin_x: -5.0
+      origin_y: -5.0
       resolution: 0.05
-      robot_radius: 0.12
+      robot_radius: 0.10
       plugins: ["voxel_layer", "inflation_layer"]
       
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 10.0
-        inflation_radius: 0.20
+        inflation_radius: 0.10
 
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
@@ -104,8 +104,8 @@ local_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
-          raytrace_max_range: 3.5
-          obstacle_max_range: 3.0
+          raytrace_max_range: 3.0
+          obstacle_max_range: 2.0
 
 global_costmap:
   global_costmap:
@@ -115,7 +115,7 @@ global_costmap:
       global_frame: map
       robot_base_frame: mouse/base_link
       use_sim_time: True
-      robot_radius: 0.20
+      robot_radius: 0.15
       resolution: 0.05
       track_unknown_space: true
       
@@ -141,13 +141,13 @@ global_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
-          raytrace_max_range: 3.5
-          obstacle_max_range: 3.0
+          raytrace_max_range: 3.0
+          obstacle_max_range: 2.5
           
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 8.0
-        inflation_radius: 0.55
+        inflation_radius: 0.20
 
 planner_server:
   ros__parameters:
