@@ -269,10 +269,10 @@ class ProposalMouseBrain(Node):
                 # NEED TO ADD WALL COLLISION AVOIDANCE HERE -------------------------------
                 kp_angular = 0.05
                 cmd.angular.z = -kp_angular * self.cheese_error
-                if abs(self.cheese_error) < 50:
+                if abs(self.cheese_error) < 30:
                     cmd.linear.x = self.linear_speed
                 else:
-                    cmd.linear.x = 1.0
+                    cmd.linear.x = 0.1
                 self.cmd_pub.publish(cmd)
                 return
         
