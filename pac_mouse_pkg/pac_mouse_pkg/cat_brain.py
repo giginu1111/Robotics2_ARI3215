@@ -168,10 +168,13 @@ class CatBrainV2(Node):
         self.angle_inc = msg.angle_increment
 
     def cheese_cb(self, msg: String):
-        if not self.power_mode:
-            self.power_mode = True
-            self.get_logger().warn("😱 POWER MODE — CAT ESCAPING!")
-            self.set_state(ESCAPE)
+        cheese_count = cheese_count+1
+        self.get_logger().info(f"🧀 Cheese eaten! Total: {cheese_count}")
+        if cheese_count == 4:
+            if not self.power_mode:
+                self.power_mode = True
+                self.get_logger().warn("😱 POWER MODE — CAT ESCAPING!")
+                self.set_state(ESCAPE)
 
     # =========================
     # State helpers
