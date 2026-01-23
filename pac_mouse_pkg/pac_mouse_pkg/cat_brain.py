@@ -134,6 +134,8 @@ class CatBrainV2(Node):
         # escape behaviour
         self.escape_speed = 0.85
 
+        self.cheese_count = 0
+
         # --- Real stuck detection (ODOM-based) ---
         self.last_progress_check_time = time.time()
         self.last_progress_pos = None
@@ -168,9 +170,9 @@ class CatBrainV2(Node):
         self.angle_inc = msg.angle_increment
 
     def cheese_cb(self, msg: String):
-        cheese_count = cheese_count+1
-        self.get_logger().info(f"🧀 Cheese eaten! Total: {cheese_count}")
-        if cheese_count == 4:
+        self.cheese_count = self.cheese_count+1
+        self.get_logger().info(f"🧀 Cheese eaten! Total: {self.cheese_count}")
+        if self.cheese_count == 4:
             if not self.power_mode:
                 self.power_mode = True
                 self.get_logger().warn("😱 POWER MODE — CAT ESCAPING!")
