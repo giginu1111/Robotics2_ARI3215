@@ -272,7 +272,7 @@ class ProposalMouseBrain(Node):
                 if abs(self.cheese_error) < 50:
                     cmd.linear.x = self.linear_speed
                 else:
-                    cmd.linear.x = 2.0
+                    cmd.linear.x = 1.0
                 self.cmd_pub.publish(cmd)
                 return
         
