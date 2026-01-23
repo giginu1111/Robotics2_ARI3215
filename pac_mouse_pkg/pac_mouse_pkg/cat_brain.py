@@ -12,7 +12,32 @@ Key upgrades:
 Assumptions:
 - LaserScan angles are in the robot frame (standard): angle=0 is forward, + is left (CCW).
 """
+"""
+=============================================================================
+ADVANCED CAT BRAIN CONTROLLER
+=============================================================================
+OVERVIEW:
+This node implements an intelligent cat controller that hunts the mouse
+using sensor fusion, predictive pursuit, and strategic interception.
 
+FEATURES:
+Mouse Tracking: Detects mouse using camera
+Predictive Pursuit: Anticipates mouse movement
+Interception: Calculates optimal intercept paths
+Obstacle Avoidance: Navigates around walls while pursuing
+Search Behavior: Explores when mouse is not visible
+
+PURSUIT STRATEGIES:
+DIRECT_CHASE: Simple pursuit towards last known position
+PREDICTIVE_INTERCEPT: Calculates future mouse position
+SEARCH_PATTERN: Systematic exploration when contact lost
+
+SENSORS USED:
+LiDAR: Obstacle detection and mouse ranging
+Camera: Visual confirmation of mouse
+Odometry: Self-localisation
+=============================================================================
+"""
 import math
 import time
 import random
