@@ -111,8 +111,7 @@ class HybridMouse(Node):
             start_time = self.get_clock().now()
             now = self.get_clock().now()
 
-            trans = self.tf_buffer.lookup_transform('map', 'mouse/base_link', now, 
-                                                timeout=rclpy.duration.Duration(seconds=0.1))
+            trans = self.tf_buffer.lookup_transform('map', 'mouse/base_link', now)
         
             self.robot_x = trans.transform.translation.x
             self.robot_y = trans.transform.translation.y
@@ -160,8 +159,8 @@ class HybridMouse(Node):
 
 
     # 1. Get the latest Map-to-Base transform so the scan is placed correctly
-        if not self.update_pose_from_tf():
-            return
+        # if not self.update_pose_from_tf():
+        #     return
 
     # 2. Convert Scan to Numpy arrays for speed
         ranges = np.array(msg.ranges)
@@ -233,9 +232,9 @@ class HybridMouse(Node):
         """
         # 1. CRITICAL: Always sync internal pose with the Map frame via TF
         # This fixes the "Frame Drift" and "Slow Turning" bugs.
-        if not self.update_pose_from_tf():
-            # If TF isn't ready, we don't have a valid position. Skip this loop.
-            return
+        # if not self.update_pose_from_tf():
+        #     # If TF isn't ready, we don't have a valid position. Skip this loop.
+        #     return
 
         # 2. STATE 1: CHASE CHEESE (Priority)
         if self.cheese_visible:
