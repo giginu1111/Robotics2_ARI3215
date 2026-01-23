@@ -18,10 +18,19 @@ from collections import deque
 import subprocess
 import time
 
+import tf2_ros
+from tf2_ros import Buffer, TransformListener
+from geometry_msgs.msg import TransformStamped
+
+
 class HybridMouse(Node):
     def __init__(self):
         super().__init__('hybrid_mouse', 
-                         parameter_overrides=[Parameter('use_sim_time', value=True)])
+             parameter_overrides=[Parameter('use_sim_time', value=True)])
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+    
+
 
         # ==========================================================
         # 1. NAVIGATION & COMMUNICATION
@@ -95,6 +104,37 @@ class HybridMouse(Node):
     # ==========================================================
     # SENSOR CALLBACKS
     # ==========================================================
+    def update_pose_from_tf(self):
+        try:
+        # Use Time(0) to ask for the LATEST available transform 
+        # instead of the specific current clock time.
+            now = rclpy.time.Time() 
+
+            trans = self.tf_buffer.lookup_transform(
+                'map', 
+                'mouse/base_link', 
+                now,
+                timeout=rclpy.duration.Duration(seconds=0.05) # Small wait if needed
+            )
+        
+            self.robot_x = trans.transform.translation.x
+            self.robot_y = trans.transform.translation.y
+        
+            q = trans.transform.rotation
+            siny_cosp = 2 * (q.w * q.z + q.x * q.y)
+            cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
+            self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
+            return True
+       
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            # Use throttled logging so your terminal isn't flooded
+            self.get_logger().warn(f"⏳ Waiting for valid TF: {e}", throttle_duration_sec=2.0)
+            return False
+        
+
+        
+
+    
     def odom_callback(self, msg):
         # We track position relative to Odom frame
         self.robot_x = msg.pose.pose.position.x
@@ -106,41 +146,47 @@ class HybridMouse(Node):
         self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
 
     def scan_callback(self, msg):
-        # Update Internal Grid
-        angle = msg.angle_min
-        rx, ry = self.robot_x, self.robot_y
+
+        if abs(self.robot_x) < 0.01 and abs(self.robot_y) < 0.01:
+            self.get_logger().warn("⚠️ Scan ignored: robot pose not initialized")
+            return
+
+
+    # 1. Get the latest Map-to-Base transform so the scan is placed correctly
+        if not self.update_pose_from_tf():
+            return
+
+    # 2. Convert Scan to Numpy arrays for speed
+        ranges = np.array(msg.ranges)
+        angles = np.linspace(msg.angle_min, msg.angle_max, len(ranges)) + self.robot_yaw
+
+    # 3. Filter out bad data (NaN, Inf, or too close/far)
+        mask = (np.isfinite(ranges)) & (ranges > 0.35) & (ranges < 8.0)
+        valid_ranges = ranges[mask]
+        valid_angles = angles[mask]
+
+    # 4. Calculate Global World Coordinates of the sensor "hits"
+        hit_x = self.robot_x + valid_ranges * np.cos(valid_angles)
+        hit_y = self.robot_y + valid_ranges * np.sin(valid_angles)
+
+    # 5. Mark Free Space (Raytracing)
+    # Instead of full raytracing (slow), we mark points along the beam as free
+        for step_dist in np.arange(0.2, 3.0, self.resolution * 2): # Steps of 30cm for speed
+            free_x = self.robot_x + step_dist * np.cos(valid_angles)
+            free_y = self.robot_y + step_dist * np.sin(valid_angles)
         
-        for r in msg.ranges:
-            if math.isnan(r) or math.isinf(r) or r < 0.35 or r > 8.0:
-                angle += msg.angle_increment
-                continue
+            for fx, fy in zip(free_x, free_y):
+                gx, gy = self.world_to_grid(fx, fy)
+                if self.is_in_grid(gx, gy) and self.grid[gx, gy] != 100:
+                    self.grid[gx, gy] = 0
 
-            global_angle = angle + self.robot_yaw
-            
-            # Clamp range for mapping (don't map walls 10m away)
-            valid_range = min(r, 4.0)
-            hit = (r <= 4.0)
-
-            # Raytrace Free Space
-            # Step size reduced for better resolution
-            for step in np.arange(0.2, valid_range, self.resolution):
-                tx = rx + step * math.cos(global_angle)
-                ty = ry + step * math.sin(global_angle)
-                gx, gy = self.world_to_grid(tx, ty)
-                if self.is_in_grid(gx, gy):
-                    # Only mark as free if it wasn't already marked as obstacle
-                    if self.grid[gx, gy] != 100:
-                        self.grid[gx, gy] = 0 
-
-            # Mark Obstacle
-            if hit:
-                wx = rx + r * math.cos(global_angle)
-                wy = ry + r * math.sin(global_angle)
-                gx, gy = self.world_to_grid(wx, wy)
-                if self.is_in_grid(gx, gy):
-                    self.grid[gx, gy] = 100
-            
-            angle += msg.angle_increment
+    # 6. Mark Obstacles (Hits)
+    # Only mark hits that are within a reasonable range (4m) to keep map clean
+        obstacle_mask = valid_ranges < 4.0
+        for ox, oy in zip(hit_x[obstacle_mask], hit_y[obstacle_mask]):
+            gx, gy = self.world_to_grid(ox, oy)
+            if self.is_in_grid(gx, gy):
+                self.grid[gx, gy] = 100
 
     def camera_callback(self, msg):
         try:
@@ -169,44 +215,82 @@ class HybridMouse(Node):
     # MAIN BRAIN LOOP
     # ==========================================================
     def brain_loop(self):
-        cmd = Twist()
-        
-        # --- STATE 1: CHASE CHEESE ---
+
+        if not self.update_pose_from_tf():
+            self.get_logger().warn("⛔ Skipping brain loop: no TF pose")
+            return
+
+        """
+        Main 10Hz Control Loop.
+        Handles state transitions between Cheese Chasing and Frontier Exploration.
+        """
+        # 1. CRITICAL: Always sync internal pose with the Map frame via TF
+        # This fixes the "Frame Drift" and "Slow Turning" bugs.
+        # if not self.update_pose_from_tf():
+        #     # If TF isn't ready, we don't have a valid position. Skip this loop.
+        #     return
+
+        # 2. STATE 1: CHASE CHEESE (Priority)
         if self.cheese_visible:
+            # Transition Logic: Stop Nav2 if we were exploring
             if not self.chasing_cheese:
-                self.get_logger().info("🧀 CHEESE! Taking manual control.")
+                self.get_logger().info("🧀 CHEESE SPOTTED! Aborting Nav2 for manual intercept.")
                 self.cancel_nav_goal()
                 self.chasing_cheese = True
 
+            # "Eat" Logic: If we are close enough (based on camera area)
             if self.cheese_area > 18000:
-                self.get_logger().info("🐭 YUM!")
-                self.cmd_pub.publish(Twist()) 
+                self.get_logger().info("🐭 SUCCESS: Eating cheese.")
+                self.cmd_pub.publish(Twist()) # Hard stop
                 self.eat_closest_cheese()
                 self.chasing_cheese = False
-                self.grid.fill(-1) # Reset map to re-explore area
+                self.grid.fill(-1) # Force re-exploration of the cleared area
                 return
             
-            # Simple P-Controller
-            cmd.linear.x = 0.25
+            if self.is_navigating:
+                self.get_logger().warn("⚠️ COMMAND CONFLICT: Cheese seen but Nav2 still active. Canceling...")
+                self.cancel_nav_goal()
+                return
+    
+            # Manual Intercept (Visual Servoing)
+            cmd = Twist()
+            cmd.linear.x = 0.25 # Slow, steady approach
+            # P-Controller for steering (0.003 is gain, cheese_error is center-offset)
             cmd.angular.z = -0.003 * self.cheese_error
             self.cmd_pub.publish(cmd)
             return
 
-        # --- STATE 2: EXPLORATION ---
-        self.chasing_cheese = False 
+        # 3. TRANSITION: Reset state if cheese is lost
+        if self.chasing_cheese and not self.cheese_visible:
+            self.get_logger().info("🧀 Cheese lost. Returning to exploration.")
+            self.chasing_cheese = False
+            # We don't return here; we let it fall through to Frontier Exploration
+
+        # 4. STATE 2: EXPLORATION (Nav2)
+        # If Nav2 is currently busy driving us to a frontier, just wait and let it work
+        if self.is_navigating:
+            # We can add a timeout check here if Nav2 gets stuck for > 60 seconds
+            return
+
+        # 5. FRONTIER LOGIC: If idle, find somewhere new to go
+        self.get_logger().info("🔍 Searching for new frontiers...", throttle_duration_sec=5.0)
+        frontiers = self.detect_frontiers()
         
-        if not self.is_navigating:
-            self.get_logger().info("🔍 Scanning for frontiers...", throttle_duration_sec=2.0)
-            frontiers = self.detect_frontiers()
-            
-            if frontiers:
-                goal_point = self.choose_frontier_goal(frontiers)
-                if goal_point:
-                    self.send_nav_goal(goal_point)
-                else:
-                    self.spin_to_find_new()
+        if frontiers:
+            goal_point = self.choose_frontier_goal(frontiers)
+            if goal_point:
+                # Successfully found a safe, reachable frontier
+                self.send_nav_goal(goal_point)
             else:
+                # Frontiers exist but none passed the "is_safe_spot" test
                 self.spin_to_find_new()
+        else:
+            # No frontiers found at all (Map is likely complete or obscured)
+            self.get_logger().warn("🗺️ No frontiers found. Performing search spin.")
+            self.spin_to_find_new()
+
+        if not frontiers:
+            self.spin_to_find_new()
 
     # ==========================================================
     # FRONTIER LOGIC
@@ -217,6 +301,11 @@ class HybridMouse(Node):
         self.cmd_pub.publish(cmd)
 
     def detect_frontiers(self):
+
+        unknown_count = np.count_nonzero(self.grid == -1)
+        free_count = np.count_nonzero(self.grid == 0)
+        obs_count = np.count_nonzero(self.grid == 100)
+
         frontiers = []
         visited = np.zeros_like(self.grid, dtype=bool)
 
@@ -231,6 +320,15 @@ class HybridMouse(Node):
                             frontiers.append(frontier)
         
         self.publish_markers(frontiers_list=frontiers)
+
+        if not frontiers:
+        # DEBUG LOG: Help identify why there are no frontiers
+            self.get_logger().info(
+                f"📊 Map Stats: Unknown={unknown_count}, Free={free_count}, Obstacles={obs_count}",
+                throttle_duration_sec=10.0)
+            
+            if unknown_count > 100 and free_count > 0:
+                self.get_logger().error("‼️ STARVATION: Unknown cells exist but no frontiers detected. Check raytracing!")
         return frontiers
 
     def is_frontier_cell(self, x, y):
@@ -263,46 +361,55 @@ class HybridMouse(Node):
     def choose_frontier_goal(self, frontiers):
         best_score = -float('inf')
         best_goal = None
-        
+    
+        # 1. Sort frontiers by size (largest first) to reduce processing
+        frontiers.sort(key=len, reverse=True)
+
         for f in frontiers:
-            # Pick center of frontier
+        # Pick the middle cell of the frontier as the representative point
             mid_idx = len(f) // 2
             gx, gy = f[mid_idx]
             wx, wy = self.grid_to_world(gx, gy)
 
-            # 1. Filter: Don't go to unreachable places
-            if any(self.dist((wx, wy), bg) < 0.5 for bg in self.unreachable_goals):
+        # 2. BLACKLIST FILTER: Skip if we've already tried and failed here
+            if any(self.dist((wx, wy), bg) < 1.0 for bg in self.unreachable_goals):
                 continue
-            
-            # 2. Relaxed Safety Check: 
-            # Check only the immediate 3x3 area, not a huge box.
+        
+        # 3. SAFETY MARGIN: Check 0.5m around the goal (4 cells at 0.15m res)
+        # This prevents Nav2 from rejecting the goal due to inflation.
             if not self.is_safe_spot(gx, gy):
                 continue
 
-            # 3. Score: Prefer Larger frontiers, closer to robot
+        # 4. SCORING: Distance vs. Information Gain
+        # We want the biggest frontiers that are closest to us.
             dist = math.hypot(wx - self.robot_x, wy - self.robot_y)
-            score = (len(f) * 1.0) - (dist * 0.5) 
-            
+        
+        # Score = (Size of Frontier) - (Distance weight)
+        # Higher score is better.
+            score = (len(f) * 1.5) - (dist * 2.0) 
+        
             if score > best_score:
                 best_score = score
                 best_goal = (wx, wy)
-        
+    
         return best_goal
 
     def is_safe_spot(self, gx, gy):
-        # Small 3x3 check (radius 1)
-        margin = 1 
+    # Margin 4 = 60cm (4 cells * 0.15m resolution)
+        margin = 4 
         for dx in range(-margin, margin + 1):
             for dy in range(-margin, margin + 1):
                 nx, ny = gx + dx, gy + dy
-                if self.is_in_grid(nx, ny) and self.grid[nx, ny] == 100:
-                    return False
+                if self.is_in_grid(nx, ny):
+                    if self.grid[nx, ny] == 100:
+                        return False
         return True
 
     # ==========================================================
     # NAV2 ACTION CLIENT
     # ==========================================================
     def send_nav_goal(self, point):
+        self.current_goal_coords = point
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose.header.frame_id = 'map' 
         goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
@@ -341,14 +448,33 @@ class HybridMouse(Node):
 
     def get_result_callback(self, future):
         status = future.result().status
-        if status == 4: 
+    
+        if status == 4: # SUCCESS
             self.get_logger().info('✅ Reached Frontier.')
+            self.is_navigating = False
         else:
-            self.get_logger().warn('⚠️ Failed to reach frontier.')
-            # Temporarily mark this location as bad
-            # (In a full slam system, the map would update, but here we blacklist)
+        # If we failed (status 5 or 6 usually means aborted/canceled)
+            self.get_logger().warn('⚠️ Nav2 Aborted. Executing Manual Recovery (Reverse)...')
         
-        self.is_navigating = False
+        # 1. Immediate Manual Recovery: Reverse for 1.5 seconds
+            recovery_msg = Twist()
+            recovery_msg.linear.x = -0.2  # Back up at 0.2 m/s
+        
+        # We publish this a few times to ensure the robot clears the obstacle
+            for _ in range(15):
+                self.cmd_pub.publish(recovery_msg)
+                time.sleep(0.1)
+        
+        # 2. Stop the robot
+            self.cmd_pub.publish(Twist())
+        
+        # 3. Add to blacklist so we don't immediately try the exact same spot
+            if hasattr(self, 'current_goal_coords'):
+                self.unreachable_goals.append(self.current_goal_coords)
+        
+            self.is_navigating = False
+            self.get_logger().info('🔄 Recovery complete. Re-scanning for new frontiers.')
+
         self.nav_goal_handle = None
 
     # ==========================================================
