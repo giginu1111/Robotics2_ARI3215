@@ -1,3 +1,31 @@
+"""
+=============================================================================
+ADVANCED MOUSE BRAIN CONTROLLER
+=============================================================================
+OVERVIEW:
+This node implements an intelligent mouse controller that combines multiple
+behavioral strategies for optimal cheese collection while evading the cat.
+
+FEATURES:
+Visual Servoing: Uses camera to detect and approach cheese
+Frontier-Based Exploration: Discovers unknown areas systematically
+Path Planning: Uses Nav2 for obstacle-free navigation
+Predator Avoidance: Detects and evades the cat
+Adaptive Behavior: Switches strategies based on context
+
+BEHAVIORAL STATES:
+CHASE_CHEESE: Visual servoing to visible cheese
+EXPLORE: Frontier-based autonomous exploration
+FLEE: Emergency evasion from cat
+NAVIGATE: Goal-directed navigation using Nav2
+
+SENSORS USED:
+Camera: Cheese detection (HSV color filtering)
+LiDAR: Obstacle detection and mapping
+Odometry: Position tracking and state estimation
+=============================================================================
+"""
+
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
@@ -239,7 +267,7 @@ class HybridMouse(Node):
                 self.chasing_cheese = True
 
             # "Eat" Logic: If we are close enough (based on camera area)
-            if self.cheese_area > 18000:
+            if self.cheese_area > 50000:
                 self.get_logger().info("🐭 SUCCESS: Eating cheese.")
                 self.cmd_pub.publish(Twist()) # Hard stop
                 self.eat_closest_cheese()
@@ -254,7 +282,7 @@ class HybridMouse(Node):
     
             # Manual Intercept (Visual Servoing)
             cmd = Twist()
-            cmd.linear.x = 0.25 # Slow, steady approach
+            cmd.linear.x = 5 # SPEED OF MOUSE WHEN LOCKING ONTO CHEESE
             # P-Controller for steering (0.003 is gain, cheese_error is center-offset)
             cmd.angular.z = -0.003 * self.cheese_error
             self.cmd_pub.publish(cmd)
@@ -297,7 +325,7 @@ class HybridMouse(Node):
     # ==========================================================
     def spin_to_find_new(self):
         cmd = Twist()
-        cmd.angular.z = 2.0
+        cmd.angular.z = 5.0
         self.cmd_pub.publish(cmd)
 
     def detect_frontiers(self):
@@ -489,7 +517,7 @@ class HybridMouse(Node):
                 min_dist = d
                 closest_name = cheese['name']
         
-        if closest_name and min_dist < 0.4: # Only eat if reasonably close
+        if closest_name and min_dist < 0.5: # Only eat if reasonably close
             self.delete_model(closest_name)
             self.pub_score.publish(String(data=closest_name))
             self.possible_cheeses = [c for c in self.possible_cheeses if c['name'] != closest_name]
