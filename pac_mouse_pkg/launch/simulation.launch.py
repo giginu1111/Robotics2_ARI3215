@@ -314,10 +314,10 @@ def generate_launch_description():
             #mouse_brain,
             #cat_brain
             #,
-            #game_master_cmd,
-            #mouse_brain_cmd,
-            #cat_brain_cmd
-            multi_window_cmd
+            game_master_cmd,
+            mouse_brain_cmd,
+            cat_brain_cmd
+            #multi_window_cmd
         ]
     )
 
