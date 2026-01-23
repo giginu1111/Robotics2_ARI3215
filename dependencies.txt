@@ -1,5 +1,5 @@
 sudo apt update
-sudo apt install ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge ros-jazzy-robot-localization ros-jazzy-slam-toolbox python3-transforms3d ros-jazzy-navigation2 ros-jazzy-nav2-bringup tmux
+sudo apt install ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge ros-jazzy-robot-localization ros-jazzy-slam-toolbox python3-transforms3d ros-jazzy-navigation2 ros-jazzy-nav2-bringup tmux xterm
 
 ros2 pkg create --build-type ament_python pac_mouse_pkg --dependencies rclpy xacro
 
