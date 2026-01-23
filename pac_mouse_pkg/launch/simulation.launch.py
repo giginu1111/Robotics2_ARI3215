@@ -1,11 +1,35 @@
+"""
+=============================================================================
+COMPLETE PAC-MOUSE SIMULATION LAUNCH FILE
+=============================================================================
+This launch file orchestrates the complete simulation environment including:
+- Gazebo physics simulation with custom maze world
+- Two differential drive robots (cat and mouse)
+- SLAM for mapping and localization
+- Nav2 stack for autonomous navigation
+- ROS-Gazebo bridge for sensor/actuator communication
+- Custom AI controllers for both agents
+- Game master for scoring and state management
+- RViz for visualization
+=============================================================================
+"""
+
 import os
 import xacro
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction, AppendEnvironmentVariable, GroupAction , ExecuteProcess
+from launch.actions import (
+    IncludeLaunchDescription, 
+    TimerAction, 
+    AppendEnvironmentVariable, 
+    DeclareLaunchArgument,
+    ExecuteProcess
+)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch_ros.actions import Node, SetRemap
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
 
 def generate_launch_description():
     # ========================================================================
