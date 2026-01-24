@@ -68,7 +68,7 @@ class ProposalMouseBrain(Node):
         # ====================================================================
         self.linear_speed = 2.0
         self.angular_speed = 2.0
-        self.cheese_threshold = 50000
+        self.cheese_threshold = 55000
         self.resolution = 0.15
         
         # Cat detection settings
@@ -905,7 +905,7 @@ class ProposalMouseBrain(Node):
                 min_dist = dist
                 closest_cheese = cheese
         
-        if closest_cheese and min_dist < 0.8:  # 🔥 REDUCED from 1.5 to 0.8
+        if closest_cheese and min_dist < 1.5:
             self.delete_gazebo_model(closest_cheese['name'])
             self.score_pub.publish(String(data=closest_cheese['name']))
             self.cheese_models.remove(closest_cheese)
