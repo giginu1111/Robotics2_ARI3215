@@ -51,7 +51,7 @@ controller_server:
       # Rotation
       use_rotate_to_heading: true
       rotate_to_heading_min_angle: 0.78        # 🔥 45° - reasonable
-      rotate_to_heading_angular_vel: 15.0
+      rotate_to_heading_angular_vel: 30.0
       max_angular_accel: 20.0
       
       # ✅ ENABLE COSTMAP AWARENESS BUT BE GENTLE
@@ -197,11 +197,11 @@ velocity_smoother:
     scale_velocities: False
     feedback: "OPEN_LOOP"
     
-    max_velocity: [1.0, 0.0, 15.0]
-    min_velocity: [-1.0, 0.0, -15.0]
-    max_accel: [2.5, 0.0, 15.0]
-    max_decel: [-2.5, 0.0, -15.0]
-    
+    max_velocity: [2.0, 0.0, 30.0]
+    min_velocity: [-2.0, 0.0, -30.0]
+    max_accel: [2.5, 0.0, 30.0]
+    max_decel: [-2.5, 0.0, -30.0]
+
     odom_topic: "mouse/odom"
     robot_frame: "mouse/base_link"
 
