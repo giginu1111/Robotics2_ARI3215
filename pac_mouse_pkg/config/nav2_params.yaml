@@ -125,11 +125,11 @@ global_costmap:
       track_unknown_space: true
       transform_tolerance: 0.5
       
-      rolling_window: true
-      width: 30
-      height: 30
-      origin_x: -15.0
-      origin_y: -15.0
+      rolling_window: false
+      width: 23
+      height: 23
+      origin_x: -11.0
+      origin_y: -11.0
       
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
 
