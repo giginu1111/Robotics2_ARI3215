@@ -1,6 +1,6 @@
 """
 =============================================================================
-ADVANCED MOUSE BRAIN CONTROLLER - FINAL VERSION V4.2
+ADVANCED MOUSE BRAIN CONTROLLER - FINAL VERSION V4.3
 =============================================================================
 AUTHOR: Damian Cutajar
 PROJECT: Pac-Mouse Autonomous Navigation System
@@ -18,6 +18,7 @@ KEY FEATURES:
     - Never forgets explored areas (unlike rolling window)
     - 0.15m resolution for efficient processing
     - Perfect memory of entire maze layout
+    - Dynamic obstacles (cat) NOT added to permanent map
 
 🎥 DUAL CAMERA VISION
     - Yellow HSV detection for cheese (H:20-40, S:100-255, V:100-255)
@@ -38,11 +39,12 @@ KEY FEATURES:
     - 1.5m minimum goal distance
     - Smart cat avoidance in exploration paths
 
-🚀 FULL-SPEED CHEESE APPROACH
-    - Maximum velocity until collection (0.8 m/s)
-    - No slowdown/deceleration zones
-    - Aggressive angular correction (kp=0.008)
-    - Wall detection with automatic Nav2 fallback
+🚀 PERSISTENT CHEESE PURSUIT
+    - Visual servoing when visible
+    - Memory of last cheese position
+    - Aggressive Nav2 fallback (doesn't give up!)
+    - Smart wall detection vs cheese detection
+    - Path clearing around cheese
 
 🛡️ MULTI-LAYER SAFETY
     - Emergency collision prevention (35cm threshold)
@@ -51,14 +53,12 @@ KEY FEATURES:
     - Corner detection and escape
     - Nav2 goal validation before sending
 
-🐱 ADAPTIVE CAT RESPONSE (WITH LINE-OF-SIGHT!)
+🐱 SMART CAT RESPONSE
     - Far detection: 5.0m danger radius
     - Close detection: 2.5m critical radius
-    - Line-of-sight checking (ignores cats behind walls!)
-    - Nav2-based intelligent escape (3m flee distance)
-    - No goal spam - single escape goal until complete
-    - Reactive turn-and-run fallback
-    - Stuck detection (6 samples, 30cm movement threshold)
+    - Improved line-of-sight (ignores cat body as obstacle)
+    - Clear flee state management
+    - No flip-flopping between states
 
 🎯 HYBRID NAVIGATION
     - Visual servoing for direct line-of-sight targets
@@ -67,35 +67,15 @@ KEY FEATURES:
     - Costmap synchronization
 
 =============================================================================
-BEHAVIORAL STATE MACHINE:
+CHANGE LOG V4.3:
 =============================================================================
-Priority 0: COLLISION RECOVERY (stop → reverse → resume)
-Priority 1: POWER CAT CHASE (visual servoing when powered)
-Priority 2: CAT FLEE (Nav2 for close, reactive for far, with LOS check)
-Priority 3: CHEESE PURSUIT (visual servoing + Nav2 fallback)
-Priority 4: EXPLORATION (frontier-based with cooldown)
-
-=============================================================================
-TECHNICAL SPECIFICATIONS:
-=============================================================================
-Map Resolution: 0.15m per cell (160x160 grid = 24m x 24m)
-Map Origin: (-12.0, -12.0) in world frame
-Control Frequency: 10 Hz (0.1s update period)
-Max Linear Velocity: 0.8 m/s (cheese/cat chase)
-Max Angular Velocity: 8.0 rad/s (critical escape)
-Cheese Detection Threshold: 55,000 pixels²
-Cat Visual Detection: 500 pixels² minimum area
-
-=============================================================================
-CHANGE LOG V4.2:
-=============================================================================
-[NEW] Line-of-sight checking for cat detection
-[NEW] Smart escape goal management (no spam)
-[FIXED] Cat behind wall no longer triggers flee
-[FIXED] Escape goals don't cancel themselves
-[FIXED] Clear separation: Nav2 for close, reactive for far
-[IMPROVED] Status 5 (CANCELED) handling in callback
-[IMPROVED] Escape state logging
+[FIXED] Cheese pursuit doesn't give up (uses Nav2 aggressively)
+[FIXED] Cat body not added to static map (dynamic obstacle)
+[FIXED] Line-of-sight uses LiDAR, not occupancy grid
+[FIXED] Flee state properly cleared when cat blocked
+[FIXED] No more flip-flopping between flee and navigate
+[IMPROVED] Cheese memory - remembers last position
+[IMPROVED] More persistent cheese collection behavior
 
 =============================================================================
 """
@@ -155,12 +135,22 @@ class ProposalMouseBrain(Node):
         self.power_mode_timer = 0.0
         self.power_mode_duration = 10.0  # 10 seconds of power
         
+        # 🆕 CHEESE MEMORY
+        self.last_cheese_x = None
+        self.last_cheese_y = None
+        self.cheese_chase_mode = False
+        
         # Obstacle collision prevention
         self.obstacle_danger_distance = 0.35
         self.obstacle_critical_distance = 0.25
         self.min_obstacle_distance = float('inf')
         self.recovery_state = None
         self.recovery_timer = 0.0
+        
+        # 🆕 LIDAR RANGES (for line-of-sight checking)
+        self.lidar_ranges = []
+        self.lidar_angle_min = 0.0
+        self.lidar_angle_increment = 0.0
         
         # Cat escape state
         self.cat_escape_goal_sent = False
@@ -233,15 +223,15 @@ class ProposalMouseBrain(Node):
         self.control_timer = self.create_timer(0.1, self.control_loop)
         
         self.get_logger().info("="*70)
-        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V4.2: ONLINE")
+        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V4.3: ONLINE")
         self.get_logger().info("="*70)
-        self.get_logger().info("🗺️  Static mapping: ACTIVE (24x24m, never forgets)")
+        self.get_logger().info("🗺️  Static mapping: ACTIVE (walls only, not cat!)")
         self.get_logger().info("🎥 Cat camera detection: ACTIVE (Sky Blue HSV)")
-        self.get_logger().info("👁️  Line-of-sight checking: ACTIVE (ignores walls!)")
+        self.get_logger().info("👁️  LiDAR line-of-sight: ACTIVE (cat-aware)")
         self.get_logger().info("⚡ Power pellet mode: READY (10s duration)")
-        self.get_logger().info("🧠 Smart cat avoidance: ACTIVE (no goal spam)")
+        self.get_logger().info("🧀 Persistent cheese chase: ACTIVE (never gives up!)")
+        self.get_logger().info("🧠 Smart cat avoidance: ACTIVE (no flip-flop)")
         self.get_logger().info("🚀 Full-speed cheese: ACTIVE (0.8 m/s)")
-        self.get_logger().info("🔄 Infinite loop fix: ACTIVE (3s cooldown)")
         self.get_logger().info(f"🐱 Cat detection: Danger={self.cat_danger_distance}m, Critical={self.cat_critical_distance}m")
         self.get_logger().info("="*70)
     
@@ -255,30 +245,47 @@ class ProposalMouseBrain(Node):
         cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
         self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
     
-    def has_line_of_sight_to_cat(self):
-        """✅ NEW: Check if cat is visible (not blocked by walls)"""
-        if self.cat_distance == float('inf'):
+    def has_line_of_sight_to_cat_lidar(self):
+        """✅ FIXED: Check LOS using LiDAR (not occupancy grid!)"""
+        if self.cat_distance == float('inf') or len(self.lidar_ranges) == 0:
             return False
         
-        # Check multiple points along line to cat
-        steps = int(self.cat_distance / self.resolution)
-        if steps < 1:
-            return True  # Too close to check, assume visible
+        # Calculate angle to cat
+        dx = self.cat_x - self.robot_x
+        dy = self.cat_y - self.robot_y
+        angle_to_cat = math.atan2(dy, dx) - self.robot_yaw
         
-        for i in range(1, steps):
-            t = i / steps
-            check_x = self.robot_x + t * (self.cat_x - self.robot_x)
-            check_y = self.robot_y + t * (self.cat_y - self.robot_y)
-            gx, gy = self.world_to_grid(check_x, check_y)
+        # Normalize to [-pi, pi]
+        while angle_to_cat > math.pi:
+            angle_to_cat -= 2.0 * math.pi
+        while angle_to_cat < -math.pi:
+            angle_to_cat += 2.0 * math.pi
+        
+        # Find corresponding LiDAR ray
+        ray_index = int((angle_to_cat - self.lidar_angle_min) / self.lidar_angle_increment)
+        
+        if 0 <= ray_index < len(self.lidar_ranges):
+            lidar_distance = self.lidar_ranges[ray_index]
             
-            if self.is_valid_grid_cell(gx, gy):
-                if self.occupancy_grid[gy, gx] == 100:  # Wall blocking!
-                    return False
+            # Check adjacent rays too (±5 rays for robustness)
+            min_lidar_dist = lidar_distance
+            for offset in range(-5, 6):
+                check_idx = ray_index + offset
+                if 0 <= check_idx < len(self.lidar_ranges):
+                    if not math.isinf(self.lidar_ranges[check_idx]) and not math.isnan(self.lidar_ranges[check_idx]):
+                        min_lidar_dist = min(min_lidar_dist, self.lidar_ranges[check_idx])
+            
+            # If LiDAR distance is much less than cat distance → wall blocking
+            # Cat body size ~0.3m, so allow 0.5m tolerance
+            if not math.isinf(min_lidar_dist) and min_lidar_dist < (self.cat_distance - 0.5):
+                return False  # Wall between us and cat
+            
+            return True  # Clear line of sight
         
-        return True
+        return False
     
     def cat_odometry_callback(self, msg):
-        """✅ FIXED: Cat odometry with line-of-sight check"""
+        """✅ FIXED: Cat odometry with proper LOS check"""
         self.cat_x = msg.pose.pose.position.x
         self.cat_y = msg.pose.pose.position.y
         
@@ -286,24 +293,25 @@ class ProposalMouseBrain(Node):
         dy = self.cat_y - self.robot_y
         self.cat_distance = math.hypot(dx, dy)
         
-        # ✅ FIXED: Check power mode AND line of sight
+        # ✅ FIXED: Clear, unambiguous cat detection
         if self.power_mode:
             self.cat_detected = False  # Never flee when powered up!
         elif self.cat_distance < self.cat_danger_distance:
-            # ✅ NEW: Only flee if cat is actually visible!
-            if self.has_line_of_sight_to_cat():
+            # ✅ NEW: Use LiDAR-based line-of-sight
+            if self.has_line_of_sight_to_cat_lidar():
                 self.cat_detected = True
             else:
                 self.cat_detected = False
-                self.get_logger().info(
-                    f"🧱 Cat blocked by wall ({self.cat_distance:.2f}m) - ignoring",
-                    throttle_duration_sec=3.0
-                )
         else:
             self.cat_detected = False
     
     def lidar_callback(self, msg):
-        """Enhanced LiDAR callback with static map updates"""
+        """✅ FIXED: LiDAR callback - stores ranges for LOS, only maps STATIC obstacles"""
+        # Store LiDAR data for line-of-sight checking
+        self.lidar_ranges = list(msg.ranges)
+        self.lidar_angle_min = msg.angle_min
+        self.lidar_angle_increment = msg.angle_increment
+        
         angle = msg.angle_min
         self.min_obstacle_distance = float('inf')
         
@@ -320,13 +328,24 @@ class ProposalMouseBrain(Node):
                     if range_val < self.min_obstacle_distance:
                         self.min_obstacle_distance = range_val
                 
+                # ✅ FIXED: Only map STATIC obstacles (walls)
+                # Don't map anything at cat's position (dynamic obstacle)
                 if 0.35 < range_val < 8.0:
-                    self.update_occupancy_grid(range_val, angle)
+                    # Calculate world position of this LiDAR point
+                    global_angle = angle + self.robot_yaw
+                    wx = self.robot_x + range_val * math.cos(global_angle)
+                    wy = self.robot_y + range_val * math.sin(global_angle)
+                    
+                    # Check if this is the cat (within 0.4m of cat position)
+                    dist_to_cat = math.hypot(wx - self.cat_x, wy - self.cat_y)
+                    
+                    if dist_to_cat > 0.4:  # Not the cat - it's a real wall!
+                        self.update_occupancy_grid(range_val, angle)
             
             angle += msg.angle_increment
     
     def update_occupancy_grid(self, range_val, local_angle):
-        """🗺️ UPDATED: Update STATIC internal map (never forgets!)"""
+        """🗺️ UPDATED: Update STATIC internal map (walls only!)"""
         global_angle = local_angle + self.robot_yaw
         
         max_trace = min(range_val, 4.0)
@@ -356,6 +375,10 @@ class ProposalMouseBrain(Node):
         
         cheese_x = self.robot_x + cheese_distance * math.cos(self.robot_yaw + cheese_angle)
         cheese_y = self.robot_y + cheese_distance * math.sin(self.robot_yaw + cheese_angle)
+        
+        # ✅ NEW: Remember cheese position
+        self.last_cheese_x = cheese_x
+        self.last_cheese_y = cheese_y
         
         gx, gy = self.world_to_grid(cheese_x, cheese_y)
         clear_radius = int(0.5 / self.resolution)
@@ -409,8 +432,8 @@ class ProposalMouseBrain(Node):
             # ====================
             # CAT DETECTION (Sky Blue - matches cat.urdf.xacro)
             # ====================
-            lower_cat = np.array([90, 80, 100])     # Cyan-blue lower
-            upper_cat = np.array([110, 255, 255])   # Cyan-blue upper
+            lower_cat = np.array([90, 80, 100])
+            upper_cat = np.array([110, 255, 255])
             cat_mask = cv2.inRange(hsv, lower_cat, upper_cat)
             
             cat_contours, _ = cv2.findContours(cat_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -419,7 +442,7 @@ class ProposalMouseBrain(Node):
                 largest_cat_contour = max(cat_contours, key=cv2.contourArea)
                 cat_area = cv2.contourArea(largest_cat_contour)
                 
-                if cat_area > 500:  # Cat needs larger area than cheese
+                if cat_area > 500:
                     M_cat = cv2.moments(largest_cat_contour)
                     if M_cat["m00"] > 0:
                         if not self.cat_visible_in_camera:
@@ -443,7 +466,7 @@ class ProposalMouseBrain(Node):
             self.get_logger().error(f"Camera error: {e}")
     
     def control_loop(self):
-        """🧠 ENHANCED: Main control loop with power mode and cat vision"""
+        """🧠 ENHANCED: Main control loop"""
         cmd = Twist()
         current_time = self.get_clock().now().nanoseconds / 1e9
         
@@ -515,32 +538,25 @@ class ProposalMouseBrain(Node):
                 self.nav_goal_handle.cancel_goal_async()
                 self.is_navigating = False
             
-            # Visual servoing to chase cat
             kp_angular = 0.008
             cmd.angular.z = -kp_angular * self.cat_camera_error
             
-            # Check if close enough to "eat" cat
             if self.cat_camera_area > 40000 and self.cat_distance < 1.0:
                 self.get_logger().info("🎉🎉🎉 CAUGHT THE CAT! 🎉🎉🎉")
                 cmd.linear.x = 0.0
                 self.cmd_pub.publish(cmd)
                 return
             
-            # Full speed chase!
             if abs(self.cat_camera_error) < 50:
                 cmd.linear.x = 0.8
-                self.get_logger().info("🏃 STRAIGHT CHASE - MAX SPEED!", throttle_duration_sec=1.0)
             elif abs(self.cat_camera_error) < 100:
                 cmd.linear.x = 0.6
-                self.get_logger().info("🔄 ADJUSTING AIM - FAST", throttle_duration_sec=1.0)
             else:
                 cmd.linear.x = 0.3
-                self.get_logger().info("↩️ TURNING TO CAT", throttle_duration_sec=1.0)
             
             self.cmd_pub.publish(cmd)
             return
         
-        # ✅ Log when power mode but cat NOT visible
         if self.power_mode and not self.cat_visible_in_camera:
             self.get_logger().info(
                 "⚡ POWER MODE ACTIVE - Searching for cat...",
@@ -548,16 +564,13 @@ class ProposalMouseBrain(Node):
             )
         
         # ====================================================================
-        # ✅ PRIORITY 1: FLEE FROM CAT (Normal mode only, with LOS check!)
+        # ✅ PRIORITY 1: FLEE FROM CAT (Only if actually visible!)
         # ====================================================================
         if self.cat_detected and not self.power_mode:
             urgency = "CRITICAL" if self.cat_distance < self.cat_critical_distance else "WARNING"
             
-            # ✅ FIXED: Close range - use Nav2 (but DON'T spam goals!)
             if self.cat_distance < 1.5:
-                # ✅ NEW: Only send goal if NOT currently navigating away
                 if not self.is_navigating:
-                    # Cancel any old navigation first
                     if self.nav_goal_handle:
                         self.nav_goal_handle.cancel_goal_async()
                     
@@ -569,7 +582,6 @@ class ProposalMouseBrain(Node):
                     escape_x = self.robot_x + escape_distance * math.cos(escape_angle)
                     escape_y = self.robot_y + escape_distance * math.sin(escape_angle)
                     
-                    # Clear path to escape goal
                     for dist in np.arange(0, escape_distance, 0.2):
                         cx = self.robot_x + dist * math.cos(escape_angle)
                         cy = self.robot_y + dist * math.sin(escape_angle)
@@ -591,7 +603,6 @@ class ProposalMouseBrain(Node):
                     self.cat_escape_goal_sent = True
                     self.last_escape_goal_time = current_time
                 else:
-                    # ✅ NEW: Already navigating away - let it finish!
                     self.get_logger().info(
                         f"🏃 Escaping via Nav2... (cat: {self.cat_distance:.2f}m)",
                         throttle_duration_sec=1.0
@@ -599,9 +610,7 @@ class ProposalMouseBrain(Node):
                 
                 return
             
-            # ✅ FIXED: Far range - reactive turn and run
             else:
-                # ✅ NEW: Cancel any navigation, use reactive control
                 if self.is_navigating and self.nav_goal_handle:
                     self.nav_goal_handle.cancel_goal_async()
                     self.is_navigating = False
@@ -613,7 +622,6 @@ class ProposalMouseBrain(Node):
                 escape_angle_world = math.atan2(dy, dx)
                 escape_angle_rel = self.normalize_angle(escape_angle_world - self.robot_yaw)
                 
-                # Stuck detection
                 self.stuck_detection_poses.append((self.robot_x, self.robot_y, current_time))
                 self.stuck_detection_poses = [p for p in self.stuck_detection_poses 
                                              if current_time - p[2] < 2.0]
@@ -642,8 +650,8 @@ class ProposalMouseBrain(Node):
                     cmd.linear.x = 0.15
                 
                 self.get_logger().info(
-                    f"🔄 Reactive flee: cat {self.cat_distance:.2f}m, turn {escape_angle_rel:.2f}rad",
-                    throttle_duration_sec=0.5
+                    f"🔄 Reactive flee: cat {self.cat_distance:.2f}m",
+                    throttle_duration_sec=1.0
                 )
                 
                 self.cmd_pub.publish(cmd)
@@ -653,9 +661,11 @@ class ProposalMouseBrain(Node):
             self.stuck_detection_poses.clear()
         
         # ====================================================================
-        # PRIORITY 2: FULL-SPEED CHEESE APPROACH
+        # ✅ PRIORITY 2: PERSISTENT CHEESE PURSUIT
         # ====================================================================
         if self.cheese_visible:
+            self.cheese_chase_mode = True
+            
             if self.is_navigating:
                 self.get_logger().info("🧀 CHEESE - CANCELING NAV2!")
                 if self.nav_goal_handle:
@@ -670,87 +680,37 @@ class ProposalMouseBrain(Node):
                 self.collect_cheese()
                 return
             
-            cheese_angle_error = abs(self.cheese_error)
-            obstacle_is_cheese = (self.min_obstacle_distance < 1.5 and cheese_angle_error < 50)
-            
-            if self.min_obstacle_distance < 0.5 and not obstacle_is_cheese:
-                if self.min_obstacle_distance < 0.4:
-                    self.get_logger().warn(
-                        f"⚠️ WALL TOO CLOSE ({self.min_obstacle_distance:.2f}m)",
-                        throttle_duration_sec=2.0
-                    )
-                    
-                    cmd = Twist()
-                    cmd.linear.x = -0.3
-                    cmd.angular.z = 2.0
-                    self.cmd_pub.publish(cmd)
-                    return
-                
-                self.get_logger().warn(
-                    f"⚠️ WALL blocking (dist: {self.min_obstacle_distance:.2f}m)",
-                    throttle_duration_sec=2.0
-                )
-                
-                if not self.is_navigating:
-                    cheese_distance = self.estimate_cheese_distance()
-                    cheese_angle = -self.cheese_error * 0.001
-                    cheese_x = self.robot_x + cheese_distance * math.cos(self.robot_yaw + cheese_angle)
-                    cheese_y = self.robot_y + cheese_distance * math.sin(self.robot_yaw + cheese_angle)
-                    
-                    gx_test, gy_test = self.world_to_grid(cheese_x, cheese_y)
-                    
-                    if not self.is_safe_location(gx_test, gy_test):
-                        self.get_logger().error("❌ Cheese position UNSAFE!")
-                        
-                        kp_angular = 0.006
-                        cmd.angular.z = -kp_angular * self.cheese_error
-                        cmd.linear.x = 0.15
-                        self.cmd_pub.publish(cmd)
-                        return
-                    
-                    gx, gy = self.world_to_grid(cheese_x, cheese_y)
-                    clear_radius = int(0.8 / self.resolution)
-                    
-                    for dx in range(-clear_radius, clear_radius + 1):
-                        for dy in range(-clear_radius, clear_radius + 1):
-                            nx, ny = gx + dx, gy + dy
-                            if self.is_valid_grid_cell(nx, ny):
-                                self.occupancy_grid[ny, nx] = 0
-                    
-                    steps = int(cheese_distance / self.resolution)
-                    for i in range(steps):
-                        t = i / max(steps, 1)
-                        path_x = self.robot_x + t * (cheese_x - self.robot_x)
-                        path_y = self.robot_y + t * (cheese_y - self.robot_y)
-                        path_gx, path_gy = self.world_to_grid(path_x, path_y)
-                        
-                        for dx in range(-2, 3):
-                            for dy in range(-2, 3):
-                                nx, ny = path_gx + dx, path_gy + dy
-                                if self.is_valid_grid_cell(nx, ny):
-                                    self.occupancy_grid[ny, nx] = 0
-                    
-                    self.send_navigation_goal((cheese_x, cheese_y))
-                return
-            
-            # 🔥 FULL SPEED VISUAL SERVOING
-            self.get_logger().info(
-                f"🚀 MAX SPEED: area={self.cheese_area:.0f}, error={self.cheese_error:.0f}",
-                throttle_duration_sec=1.0
-            )
-            
+            # 🔥 FULL SPEED VISUAL SERVOING (don't give up!)
             kp_angular = 0.008
             cmd.angular.z = -kp_angular * self.cheese_error
             
-            # 🔥 ALWAYS MAXIMUM SPEED UNTIL COLLECTION!
             if abs(self.cheese_error) < 50:
-                cmd.linear.x = 0.8  # MAX SPEED
+                cmd.linear.x = 0.8
             elif abs(self.cheese_error) < 150:
-                cmd.linear.x = 0.7  # Still fast
+                cmd.linear.x = 0.7
             else:
-                cmd.linear.x = 0.4  # Turn more
+                cmd.linear.x = 0.4
             
             self.cmd_pub.publish(cmd)
+            return
+        
+        # ✅ CHEESE LOST BUT REMEMBERED - Use Nav2!
+        elif self.cheese_chase_mode and self.last_cheese_x is not None:
+            if not self.is_navigating:
+                self.get_logger().warn(f"🧀 Cheese lost - navigating to last position!")
+                
+                # Clear path to cheese
+                gx, gy = self.world_to_grid(self.last_cheese_x, self.last_cheese_y)
+                clear_radius = int(1.0 / self.resolution)
+                
+                for dx in range(-clear_radius, clear_radius + 1):
+                    for dy in range(-clear_radius, clear_radius + 1):
+                        nx, ny = gx + dx, gy + dy
+                        if self.is_valid_grid_cell(nx, ny):
+                            self.occupancy_grid[ny, nx] = 0
+                
+                self.send_navigation_goal((self.last_cheese_x, self.last_cheese_y))
+            
             return
         
         # ====================================================================
@@ -760,17 +720,16 @@ class ProposalMouseBrain(Node):
             return
         
         # ====================================================================
-        # PRIORITY 4: SMART EXPLORATION (WITH LOOP PREVENTION)
+        # PRIORITY 4: EXPLORATION
         # ====================================================================
+        self.cheese_chase_mode = False
         self.explore_environment()
     
     def explore_environment(self):
-        """🔧 FIXED: Add cooldown between goals"""
+        """Exploration with cooldown"""
         current_time = self.get_clock().now().nanoseconds / 1e9
         
-        # 🔧 ENFORCE COOLDOWN BETWEEN GOALS
         if current_time - self.last_goal_time < self.goal_cooldown:
-            # Just rotate slowly while waiting
             cmd = Twist()
             cmd.angular.z = 1.5
             self.cmd_pub.publish(cmd)
@@ -782,20 +741,18 @@ class ProposalMouseBrain(Node):
             goal_point = self.select_best_frontier(frontiers)
             if goal_point:
                 self.send_navigation_goal(goal_point)
-                self.last_goal_time = current_time  # 🔧 UPDATE COOLDOWN TIMER
+                self.last_goal_time = current_time
                 return
         
-        # No valid frontiers - rotate to search
         cmd = Twist()
         cmd.angular.z = 3.0
         self.cmd_pub.publish(cmd)
     
     def detect_frontiers(self):
-        """Detect frontier regions in static map"""
+        """Detect frontier regions"""
         frontiers = []
         visited = np.zeros_like(self.occupancy_grid, dtype=bool)
         
-        # 🗺️ UPDATED: Use grid_size_x and grid_size_y
         for x in range(1, self.grid_size_x - 1):
             for y in range(1, self.grid_size_y - 1):
                 if self.occupancy_grid[y, x] == 0 and not visited[y, x]:
@@ -845,14 +802,10 @@ class ProposalMouseBrain(Node):
         return frontier
     
     def select_best_frontier(self, frontiers):
-        """🔧 FIXED: Avoid recently visited frontiers + cat areas"""
-        best_score = -float('inf')
-        best_goal = None
-        
+        """Select best frontier"""
         candidates = []
         current_time = self.get_clock().now().nanoseconds / 1e9
         
-        # 🔧 Clean old visited goals (older than 30 seconds)
         self.visited_goals = [(gx, gy, t) for gx, gy, t in self.visited_goals 
                               if current_time - t < 30.0]
         
@@ -884,25 +837,22 @@ class ProposalMouseBrain(Node):
             wx, wy = self.grid_to_world(gx, gy)
             distance = math.hypot(wx - self.robot_x, wy - self.robot_y)
             
-            # 🔧 SKIP IF TOO CLOSE TO CURRENT POSITION
             if distance < self.min_goal_distance:
                 continue
             
-            # 🔧 SKIP IF RECENTLY VISITED
             skip_frontier = False
             for visited_gx, visited_gy, _ in self.visited_goals:
                 visited_wx, visited_wy = self.grid_to_world(visited_gx, visited_gy)
                 dist_to_visited = math.hypot(wx - visited_wx, wy - visited_wy)
-                if dist_to_visited < 2.0:  # Skip if within 2m of visited goal
+                if dist_to_visited < 2.0:
                     skip_frontier = True
                     break
             
             if skip_frontier:
                 continue
             
-            # Cat avoidance logic
             cat_penalty = 0.0
-            if self.cat_visible_in_camera and not self.power_mode:
+            if self.cat_detected and not self.power_mode:
                 frontier_angle = math.atan2(wy - self.robot_y, wx - self.robot_x)
                 cat_angle = math.atan2(self.cat_y - self.robot_y, self.cat_x - self.robot_x)
                 
@@ -912,10 +862,6 @@ class ProposalMouseBrain(Node):
                     distance_to_cat = math.hypot(self.cat_x - wx, self.cat_y - wy)
                     if distance_to_cat < 3.0:
                         cat_penalty = 10.0
-                        self.get_logger().info(
-                            f"⚠️ Skipping frontier near cat",
-                            throttle_duration_sec=2.0
-                        )
             
             size_score = math.sqrt(len(frontier))
             distance_penalty = distance * 0.8
@@ -927,15 +873,14 @@ class ProposalMouseBrain(Node):
             candidates.sort(reverse=True, key=lambda x: x[0])
             best_score, wx, wy, size, gx, gy = candidates[0]
             
-            # 🔧 MARK AS VISITED
             self.visited_goals.append((gx, gy, current_time))
             
             self.get_logger().info(
                 f"📍 Frontier: size={size}, dist={math.hypot(wx-self.robot_x, wy-self.robot_y):.2f}m"
             )
-            best_goal = (wx, wy)
+            return (wx, wy)
         
-        return best_goal
+        return None
     
     def is_safe_location(self, gx, gy):
         """Safety check"""
@@ -1066,21 +1011,27 @@ class ProposalMouseBrain(Node):
         result_future.add_done_callback(self.goal_result_callback)
     
     def goal_result_callback(self, future):
-        """✅ UPDATED: Handle goal completion with status 5"""
+        """Handle goal completion"""
         result = future.result()
         self.is_navigating = False
         
-        if result.status == 4:  # SUCCEEDED
+        if result.status == 4:
             self.get_logger().info('✅ Goal reached')
             self.goal_rejection_count = 0
             self.last_rejected_goal = None
+            # ✅ Check if we reached cheese position
+            if self.cheese_chase_mode and self.last_cheese_x is not None:
+                dist_to_cheese = math.hypot(self.robot_x - self.last_cheese_x, 
+                                           self.robot_y - self.last_cheese_y)
+                if dist_to_cheese < 1.0:
+                    self.get_logger().info("🧀 Reached cheese area - switching to visual")
         
-        elif result.status == 5:  # ✅ CANCELED (intentional)
+        elif result.status == 5:
             self.get_logger().info('🔄 Goal CANCELED (switched priority)')
-            self.goal_rejection_count = 0  # Reset - this is intentional
+            self.goal_rejection_count = 0
             self.last_rejected_goal = None
         
-        elif result.status == 6:  # ABORTED
+        elif result.status == 6:
             self.get_logger().error('❌ Goal ABORTED by Nav2!')
             self.goal_rejection_count += 1
             robot_gx, robot_gy = self.world_to_grid(self.robot_x, self.robot_y)
@@ -1096,7 +1047,7 @@ class ProposalMouseBrain(Node):
             self.goal_rejection_count = 0
     
     def collect_cheese(self):
-        """✅ FIXED: Cheese collection + power mode activation"""
+        """Cheese collection + power mode"""
         min_dist = float('inf')
         closest_cheese = None
         
@@ -1113,11 +1064,15 @@ class ProposalMouseBrain(Node):
             self.cheese_models.remove(closest_cheese)
             self.get_logger().info(f"🎯 Collected {closest_cheese['name']}!")
             
-            # ✅ POWER PELLET: Activate power mode for cheese_3!
+            # ✅ Clear cheese memory
+            self.last_cheese_x = None
+            self.last_cheese_y = None
+            self.cheese_chase_mode = False
+            
             if closest_cheese['name'] == 'cheese_3':
                 self.power_mode = True
                 self.power_mode_timer = self.get_clock().now().nanoseconds / 1e9
-                self.cat_detected = False  # ✅ IMPORTANT: Clear flee flag!
+                self.cat_detected = False
                 self.get_logger().info("="*70)
                 self.get_logger().info("⚡⚡⚡ POWER MODE ACTIVATED! ⚡⚡⚡")
                 self.get_logger().info("🍖 CAT IS NOW PREY! HUNT IT DOWN!")
@@ -1138,19 +1093,19 @@ class ProposalMouseBrain(Node):
         subprocess.run(cmd, capture_output=True)
     
     def world_to_grid(self, wx, wy):
-        """🗺️ UPDATED: Convert world coordinates to STATIC grid"""
+        """Convert world to grid"""
         gx = int((wx - self.map_origin_x) / self.resolution)
         gy = int((wy - self.map_origin_y) / self.resolution)
         return gx, gy
     
     def grid_to_world(self, gx, gy):
-        """🗺️ UPDATED: Convert STATIC grid coordinates to world"""
+        """Convert grid to world"""
         wx = self.map_origin_x + (gx * self.resolution)
         wy = self.map_origin_y + (gy * self.resolution)
         return wx, wy
     
     def is_valid_grid_cell(self, x, y):
-        """🗺️ UPDATED: Check if grid coordinates are valid"""
+        """Check if grid cell valid"""
         return 0 <= x < self.grid_size_x and 0 <= y < self.grid_size_y
     
     def normalize_angle(self, angle):
