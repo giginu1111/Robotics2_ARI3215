@@ -445,7 +445,7 @@ class ProposalMouseBrain(Node):
                 largest_cat_contour = max(cat_contours, key=cv2.contourArea)
                 cat_area = cv2.contourArea(largest_cat_contour)
                 
-                if cat_area > 500:
+                if cat_area > 100:
                     M_cat = cv2.moments(largest_cat_contour)
                     if M_cat["m00"] > 0:
                         if not self.cat_visible_in_camera:
