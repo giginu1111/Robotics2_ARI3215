@@ -640,11 +640,11 @@ class ProposalMouseBrain(Node):
                 escape_angle_world = math.atan2(dy, dx)
                 escape_angle_rel = self.normalize_angle(escape_angle_world - self.robot_yaw)
                 
-                turn_speed = 8.0 if self.cat_distance < self.cat_critical_distance else 5.0
+                turn_speed = 15.0
                 cmd.angular.z = turn_speed * np.sign(escape_angle_rel)
                 
                 if abs(escape_angle_rel) < 0.5:
-                    cmd.linear.x = 0.5 if self.cat_distance < self.cat_critical_distance else 0.4
+                    cmd.linear.x = 2.5
                 else:
                     cmd.linear.x = 0.15
                 
