@@ -120,7 +120,7 @@ class ProposalMouseBrain(Node):
         
         # Calculate threshold based on FOV (baseline: 55000 @ 60°)
         baseline_fov = 60.0
-        baseline_threshold = 55000
+        baseline_threshold = 45000
         fov_ratio = (baseline_fov / self.camera_fov_degrees) ** 2
         self.cheese_threshold = int(baseline_threshold * fov_ratio)
         
@@ -435,8 +435,8 @@ class ProposalMouseBrain(Node):
             # ====================
             # CAT DETECTION (Sky Blue)
             # ====================
-            lower_cat = np.array([95, 150, 150])
-            upper_cat = np.array([105, 255, 255])
+            lower_cat = np.array([80, 50, 50])
+            upper_cat = np.array([130, 255, 255])
             cat_mask = cv2.inRange(hsv, lower_cat, upper_cat)
             
             cat_contours, _ = cv2.findContours(cat_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -445,7 +445,7 @@ class ProposalMouseBrain(Node):
                 largest_cat_contour = max(cat_contours, key=cv2.contourArea)
                 cat_area = cv2.contourArea(largest_cat_contour)
                 
-                if cat_area > 100:
+                if cat_area > 50:
                     M_cat = cv2.moments(largest_cat_contour)
                     if M_cat["m00"] > 0:
                         if not self.cat_visible_in_camera:
