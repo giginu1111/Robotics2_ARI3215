@@ -1,6 +1,6 @@
 """
 =============================================================================
-ADVANCED MOUSE BRAIN CONTROLLER - FINAL VERSION V4.3
+ADVANCED MOUSE BRAIN CONTROLLER - FINAL VERSION V4.5
 =============================================================================
 AUTHOR: Damian Cutajar
 PROJECT: Pac-Mouse Autonomous Navigation System
@@ -25,12 +25,18 @@ KEY FEATURES:
     - Blue HSV detection for cat (H:90-110, S:80-255, V:100-255)
     - Real-time visual servoing for both targets
     - Area-based distance estimation
+    - FOV-adaptive threshold (supports 60°-120° FOV)
 
 ⚡ POWER PELLET MODE (10 seconds)
     - Activated by eating cheese_3
-    - Reverses predator/prey roles
+    - Reverses predator/prey roles temporarily
     - Cat becomes huntable target
     - Full-speed pursuit (0.8 m/s)
+
+🏆 VICTORY MODE (Permanent)
+    - Activated when ALL cheese collected
+    - Never expires - hunt forever!
+    - Game completion state
 
 🧭 INTELLIGENT EXPLORATION
     - Frontier-based unknown area detection
@@ -45,6 +51,7 @@ KEY FEATURES:
     - Aggressive Nav2 fallback (doesn't give up!)
     - Smart wall detection vs cheese detection
     - Path clearing around cheese
+    - Validates cheese still exists before pursuing
 
 🛡️ MULTI-LAYER SAFETY
     - Emergency collision prevention (35cm threshold)
@@ -56,9 +63,10 @@ KEY FEATURES:
 🐱 SMART CAT RESPONSE
     - Far detection: 5.0m danger radius
     - Close detection: 2.5m critical radius
-    - Improved line-of-sight (ignores cat body as obstacle)
+    - LiDAR-based line-of-sight (ignores cat body as obstacle)
     - Clear flee state management
-    - No flip-flopping between states
+    - No stuck detection spam in reactive mode
+    - Smooth reactive flee without Nav2 interference
 
 🎯 HYBRID NAVIGATION
     - Visual servoing for direct line-of-sight targets
@@ -67,15 +75,13 @@ KEY FEATURES:
     - Costmap synchronization
 
 =============================================================================
-CHANGE LOG V4.3:
+CHANGE LOG V4.5:
 =============================================================================
-[FIXED] Cheese pursuit doesn't give up (uses Nav2 aggressively)
-[FIXED] Cat body not added to static map (dynamic obstacle)
-[FIXED] Line-of-sight uses LiDAR, not occupancy grid
-[FIXED] Flee state properly cleared when cat blocked
-[FIXED] No more flip-flopping between flee and navigate
-[IMPROVED] Cheese memory - remembers last position
-[IMPROVED] More persistent cheese collection behavior
+[NEW] Victory mode - permanent hunt after all cheese collected
+[FIXED] Power mode now only temporary (10s from cheese_3)
+[FIXED] Victory mode never expires
+[IMPROVED] Game completion detection
+[IMPROVED] Celebration behavior on cat capture
 
 =============================================================================
 """
@@ -110,7 +116,15 @@ class ProposalMouseBrain(Node):
         # ====================================================================
         self.linear_speed = 2.0
         self.angular_speed = 2.0
-        self.cheese_threshold = 13750
+        
+        # ✅ FOV-AWARE CHEESE THRESHOLD
+        self.camera_fov_degrees = 120.0  # ✅ Match your URDF setting!
+        
+        # Calculate threshold based on FOV (baseline: 55000 @ 60°)
+        baseline_fov = 60.0
+        baseline_threshold = 55000
+        fov_ratio = (baseline_fov / self.camera_fov_degrees) ** 2
+        self.cheese_threshold = int(baseline_threshold * fov_ratio)
         
         # 🗺️ STATIC MAP SETTINGS (Fixed world frame - never forgets!)
         self.resolution = 0.15              # 0.15m per cell (fast processing)
@@ -131,7 +145,12 @@ class ProposalMouseBrain(Node):
         self.cat_visible_in_camera = False
         self.cat_camera_error = 0.0
         self.cat_camera_area = 0.0
-        self.power_mode = False  # Set to True when can eat cat!
+        
+        # ✅ NEW: Victory mode (permanent hunt after all cheese collected)
+        self.victory_mode = False
+        
+        # Power pellet mode (temporary boost from cheese_3)
+        self.power_mode = False
         self.power_mode_timer = 0.0
         self.power_mode_duration = 10.0  # 10 seconds of power
         
@@ -155,7 +174,6 @@ class ProposalMouseBrain(Node):
         # Cat escape state
         self.cat_escape_goal_sent = False
         self.last_escape_goal_time = 0.0
-        self.stuck_detection_poses = []
         
         # Goal retry prevention
         self.last_rejected_goal = None
@@ -223,14 +241,17 @@ class ProposalMouseBrain(Node):
         self.control_timer = self.create_timer(0.1, self.control_loop)
         
         self.get_logger().info("="*70)
-        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V4.3: ONLINE")
+        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V4.5: ONLINE")
         self.get_logger().info("="*70)
         self.get_logger().info("🗺️  Static mapping: ACTIVE (walls only, not cat!)")
+        self.get_logger().info(f"📷 Camera FOV: {self.camera_fov_degrees}°")
+        self.get_logger().info(f"🧀 Cheese threshold: {self.cheese_threshold} pixels")
         self.get_logger().info("🎥 Cat camera detection: ACTIVE (Sky Blue HSV)")
         self.get_logger().info("👁️  LiDAR line-of-sight: ACTIVE (cat-aware)")
-        self.get_logger().info("⚡ Power pellet mode: READY (10s duration)")
+        self.get_logger().info("⚡ Power pellet mode: 10s (cheese_3)")
+        self.get_logger().info("🏆 Victory mode: PERMANENT (all cheese collected)")
         self.get_logger().info("🧀 Persistent cheese chase: ACTIVE (never gives up!)")
-        self.get_logger().info("🧠 Smart cat avoidance: ACTIVE (no flip-flop)")
+        self.get_logger().info("🧠 Smart cat avoidance: ACTIVE (no spam)")
         self.get_logger().info("🚀 Full-speed cheese: ACTIVE (0.8 m/s)")
         self.get_logger().info(f"🐱 Cat detection: Danger={self.cat_danger_distance}m, Critical={self.cat_critical_distance}m")
         self.get_logger().info("="*70)
@@ -293,11 +314,10 @@ class ProposalMouseBrain(Node):
         dy = self.cat_y - self.robot_y
         self.cat_distance = math.hypot(dx, dy)
         
-        # ✅ FIXED: Clear, unambiguous cat detection
-        if self.power_mode:
-            self.cat_detected = False  # Never flee when powered up!
+        # ✅ FIXED: Never flee in power mode OR victory mode
+        if self.power_mode or self.victory_mode:
+            self.cat_detected = False  # Never flee!
         elif self.cat_distance < self.cat_danger_distance:
-            # ✅ NEW: Use LiDAR-based line-of-sight
             if self.has_line_of_sight_to_cat_lidar():
                 self.cat_detected = True
             else:
@@ -446,7 +466,12 @@ class ProposalMouseBrain(Node):
                     M_cat = cv2.moments(largest_cat_contour)
                     if M_cat["m00"] > 0:
                         if not self.cat_visible_in_camera:
-                            status = "🍖 CAT IN SIGHT - HUNTING!" if self.power_mode else "😱 CAT SPOTTED!"
+                            if self.victory_mode:
+                                status = "🏆 CAT IN SIGHT - VICTORY HUNT!"
+                            elif self.power_mode:
+                                status = "🍖 CAT IN SIGHT - HUNTING!"
+                            else:
+                                status = "😱 CAT SPOTTED!"
                             self.get_logger().info(status)
                         
                         cx_cat = int(M_cat["m10"] / M_cat["m00"])
@@ -471,9 +496,22 @@ class ProposalMouseBrain(Node):
         current_time = self.get_clock().now().nanoseconds / 1e9
         
         # ====================
-        # POWER MODE TIMER
+        # ✅ VICTORY MODE CHECK (All cheese eaten!)
         # ====================
-        if self.power_mode:
+        if len(self.cheese_models) == 0 and not self.victory_mode:
+            self.victory_mode = True
+            self.power_mode = False  # Disable temporary power mode
+            self.cat_detected = False  # Never flee in victory mode
+            self.get_logger().info("="*70)
+            self.get_logger().info("🏆🏆🏆 VICTORY MODE! 🏆🏆🏆")
+            self.get_logger().info("🍖 ALL CHEESE COLLECTED - HUNT THE CAT FOREVER!")
+            self.get_logger().info("⚡ PERMANENT POWER MODE ACTIVATED!")
+            self.get_logger().info("="*70)
+        
+        # ====================
+        # POWER MODE TIMER (Only if NOT in victory mode)
+        # ====================
+        if self.power_mode and not self.victory_mode:
             elapsed = current_time - self.power_mode_timer
             if elapsed > self.power_mode_duration:
                 self.get_logger().info("⚡ Power mode EXPIRED!")
@@ -526,11 +564,12 @@ class ProposalMouseBrain(Node):
             self.recovery_state = None
         
         # ====================================================================
-        # ✅ PRIORITY 0.5: CHASE CAT (POWER MODE ONLY!)
+        # ✅ PRIORITY 0.5: CHASE CAT (POWER MODE OR VICTORY MODE!)
         # ====================================================================
-        if self.power_mode and self.cat_visible_in_camera:
+        if (self.power_mode or self.victory_mode) and self.cat_visible_in_camera:
+            mode_text = "🏆 VICTORY HUNT" if self.victory_mode else "🍖 HUNTING CAT"
             self.get_logger().info(
-                f"🍖 HUNTING CAT! area={self.cat_camera_area:.0f}, error={self.cat_camera_error:.0f}, dist={self.cat_distance:.2f}m",
+                f"{mode_text}! area={self.cat_camera_area:.0f}, error={self.cat_camera_error:.0f}, dist={self.cat_distance:.2f}m",
                 throttle_duration_sec=0.5
             )
             
@@ -542,8 +581,14 @@ class ProposalMouseBrain(Node):
             cmd.angular.z = -kp_angular * self.cat_camera_error
             
             if self.cat_camera_area > 40000 and self.cat_distance < 1.0:
-                self.get_logger().info("🎉🎉🎉 CAUGHT THE CAT! 🎉🎉🎉")
+                self.get_logger().info("="*70)
+                self.get_logger().info("🎉🎉🎉 VICTORY! CAT CAUGHT! 🎉🎉🎉")
+                self.get_logger().info("🏆 GAME COMPLETE - MOUSE WINS!")
+                self.get_logger().info("="*70)
                 cmd.linear.x = 0.0
+                self.cmd_pub.publish(cmd)
+                # Optional: Celebration spin!
+                cmd.angular.z = 5.0
                 self.cmd_pub.publish(cmd)
                 return
             
@@ -557,18 +602,20 @@ class ProposalMouseBrain(Node):
             self.cmd_pub.publish(cmd)
             return
         
-        if self.power_mode and not self.cat_visible_in_camera:
+        if self.power_mode or self.victory_mode:
+            search_text = "🏆 VICTORY MODE - Hunting cat..." if self.victory_mode else "⚡ POWER MODE ACTIVE - Searching for cat..."
             self.get_logger().info(
-                "⚡ POWER MODE ACTIVE - Searching for cat...",
+                search_text,
                 throttle_duration_sec=2.0
             )
         
         # ====================================================================
-        # ✅ PRIORITY 1: FLEE FROM CAT (Only if actually visible!)
+        # ✅ PRIORITY 1: FLEE FROM CAT (Only if actually visible and NOT in victory/power mode!)
         # ====================================================================
-        if self.cat_detected and not self.power_mode:
+        if self.cat_detected and not self.power_mode and not self.victory_mode:
             urgency = "CRITICAL" if self.cat_distance < self.cat_critical_distance else "WARNING"
             
+            # ✅ CLOSE RANGE (<1.5m) - Use Nav2 escape
             if self.cat_distance < 1.5:
                 if not self.is_navigating:
                     if self.nav_goal_handle:
@@ -582,6 +629,7 @@ class ProposalMouseBrain(Node):
                     escape_x = self.robot_x + escape_distance * math.cos(escape_angle)
                     escape_y = self.robot_y + escape_distance * math.sin(escape_angle)
                     
+                    # Clear path to escape goal
                     for dist in np.arange(0, escape_distance, 0.2):
                         cx = self.robot_x + dist * math.cos(escape_angle)
                         cy = self.robot_y + dist * math.sin(escape_angle)
@@ -610,7 +658,9 @@ class ProposalMouseBrain(Node):
                 
                 return
             
+            # ✅ FAR RANGE (1.5m - 5.0m) - Reactive turn and run (NO NAV2!)
             else:
+                # ✅ FIXED: Cancel any Nav2, use pure reactive control
                 if self.is_navigating and self.nav_goal_handle:
                     self.nav_goal_handle.cancel_goal_async()
                     self.is_navigating = False
@@ -622,25 +672,6 @@ class ProposalMouseBrain(Node):
                 escape_angle_world = math.atan2(dy, dx)
                 escape_angle_rel = self.normalize_angle(escape_angle_world - self.robot_yaw)
                 
-                self.stuck_detection_poses.append((self.robot_x, self.robot_y, current_time))
-                self.stuck_detection_poses = [p for p in self.stuck_detection_poses 
-                                             if current_time - p[2] < 2.0]
-                
-                if len(self.stuck_detection_poses) > 6:
-                    first_pose = self.stuck_detection_poses[0]
-                    distance_moved = math.hypot(self.robot_x - first_pose[0], 
-                                              self.robot_y - first_pose[1])
-                    
-                    if distance_moved < 0.3:
-                        self.get_logger().error("🚨 STUCK IN CORNER!")
-                        
-                        escape_x = self.robot_x + 2.0 * math.cos(self.robot_yaw + math.pi/2)
-                        escape_y = self.robot_y + 2.0 * math.sin(self.robot_yaw + math.pi/2)
-                        
-                        self.send_navigation_goal((escape_x, escape_y))
-                        self.stuck_detection_poses.clear()
-                        return
-                
                 turn_speed = 8.0 if self.cat_distance < self.cat_critical_distance else 5.0
                 cmd.angular.z = turn_speed * np.sign(escape_angle_rel)
                 
@@ -650,20 +681,20 @@ class ProposalMouseBrain(Node):
                     cmd.linear.x = 0.15
                 
                 self.get_logger().info(
-                    f"🔄 Reactive flee: cat {self.cat_distance:.2f}m",
+                    f"🔄 Reactive flee: cat {self.cat_distance:.2f}m, angle {escape_angle_rel:.2f}rad",
                     throttle_duration_sec=1.0
                 )
                 
                 self.cmd_pub.publish(cmd)
                 return
         else:
+            # ✅ Clear flee state when cat not detected
             self.cat_escape_goal_sent = False
-            self.stuck_detection_poses.clear()
         
         # ====================================================================
-        # ✅ PRIORITY 2: PERSISTENT CHEESE PURSUIT
+        # ✅ PRIORITY 2: PERSISTENT CHEESE PURSUIT (Skip if victory mode!)
         # ====================================================================
-        if self.cheese_visible:
+        if not self.victory_mode and self.cheese_visible:
             self.cheese_chase_mode = True
             
             if self.is_navigating:
@@ -693,14 +724,14 @@ class ProposalMouseBrain(Node):
             
             self.cmd_pub.publish(cmd)
             return
-
+        
         # ✅ CHEESE LOST BUT REMEMBERED - Use Nav2 (with safety check!)
-        elif self.cheese_chase_mode and self.last_cheese_x is not None:
+        elif not self.victory_mode and self.cheese_chase_mode and self.last_cheese_x is not None:
             # ✅ NEW: Safety check - make sure cheese still exists!
             cheese_still_exists = False
             for cheese in self.cheese_models:
                 dist = math.hypot(self.last_cheese_x - cheese['x'], 
-                                self.last_cheese_y - cheese['y'])
+                                 self.last_cheese_y - cheese['y'])
                 if dist < 0.5:  # Within 0.5m of known cheese location
                     cheese_still_exists = True
                     break
@@ -730,7 +761,6 @@ class ProposalMouseBrain(Node):
                     self.send_navigation_goal((self.last_cheese_x, self.last_cheese_y))
                 
                 return
-
         
         # ====================================================================
         # PRIORITY 3: NAVIGATE
@@ -739,10 +769,15 @@ class ProposalMouseBrain(Node):
             return
         
         # ====================================================================
-        # PRIORITY 4: EXPLORATION
+        # PRIORITY 4: EXPLORATION (or cat hunting in victory mode)
         # ====================================================================
-        self.cheese_chase_mode = False
-        self.explore_environment()
+        if self.victory_mode:
+            # In victory mode, rotate to search for cat
+            cmd.angular.z = 3.0
+            self.cmd_pub.publish(cmd)
+        else:
+            self.cheese_chase_mode = False
+            self.explore_environment()
     
     def explore_environment(self):
         """Exploration with cooldown"""
@@ -871,7 +906,7 @@ class ProposalMouseBrain(Node):
                 continue
             
             cat_penalty = 0.0
-            if self.cat_detected and not self.power_mode:
+            if self.cat_detected and not self.power_mode and not self.victory_mode:
                 frontier_angle = math.atan2(wy - self.robot_y, wx - self.robot_x)
                 cat_angle = math.atan2(self.cat_y - self.robot_y, self.cat_x - self.robot_x)
                 
@@ -1066,7 +1101,7 @@ class ProposalMouseBrain(Node):
             self.goal_rejection_count = 0
     
     def collect_cheese(self):
-        """Cheese collection + power mode"""
+        """✅ FIXED: Cheese collection with immediate memory clear"""
         min_dist = float('inf')
         closest_cheese = None
         
@@ -1078,15 +1113,16 @@ class ProposalMouseBrain(Node):
                 closest_cheese = cheese
         
         if closest_cheese and min_dist < 1.5:
+            # ✅ CLEAR MEMORY FIRST (before any delays)
+            self.last_cheese_x = None
+            self.last_cheese_y = None
+            self.cheese_chase_mode = False
+            self.cheese_visible = False  # ✅ Also clear camera detection
+            
             self.delete_gazebo_model(closest_cheese['name'])
             self.score_pub.publish(String(data=closest_cheese['name']))
             self.cheese_models.remove(closest_cheese)
             self.get_logger().info(f"🎯 Collected {closest_cheese['name']}!")
-            
-            # ✅ Clear cheese memory
-            self.last_cheese_x = None
-            self.last_cheese_y = None
-            self.cheese_chase_mode = False
             
             if closest_cheese['name'] == 'cheese_3':
                 self.power_mode = True
