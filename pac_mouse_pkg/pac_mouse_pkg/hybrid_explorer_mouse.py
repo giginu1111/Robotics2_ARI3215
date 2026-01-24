@@ -680,7 +680,7 @@ class ProposalMouseBrain(Node):
                 self.collect_cheese()
                 return
             
-            # 🔥 FULL SPEED VISUAL SERVOING (don't give up!)
+            # 🔥 FULL SPEED VISUAL SERVOING
             kp_angular = 0.008
             cmd.angular.z = -kp_angular * self.cheese_error
             
@@ -693,25 +693,44 @@ class ProposalMouseBrain(Node):
             
             self.cmd_pub.publish(cmd)
             return
-        
-        # ✅ CHEESE LOST BUT REMEMBERED - Use Nav2!
+
+        # ✅ CHEESE LOST BUT REMEMBERED - Use Nav2 (with safety check!)
         elif self.cheese_chase_mode and self.last_cheese_x is not None:
-            if not self.is_navigating:
-                self.get_logger().warn(f"🧀 Cheese lost - navigating to last position!")
-                
-                # Clear path to cheese
-                gx, gy = self.world_to_grid(self.last_cheese_x, self.last_cheese_y)
-                clear_radius = int(1.0 / self.resolution)
-                
-                for dx in range(-clear_radius, clear_radius + 1):
-                    for dy in range(-clear_radius, clear_radius + 1):
-                        nx, ny = gx + dx, gy + dy
-                        if self.is_valid_grid_cell(nx, ny):
-                            self.occupancy_grid[ny, nx] = 0
-                
-                self.send_navigation_goal((self.last_cheese_x, self.last_cheese_y))
+            # ✅ NEW: Safety check - make sure cheese still exists!
+            cheese_still_exists = False
+            for cheese in self.cheese_models:
+                dist = math.hypot(self.last_cheese_x - cheese['x'], 
+                                self.last_cheese_y - cheese['y'])
+                if dist < 0.5:  # Within 0.5m of known cheese location
+                    cheese_still_exists = True
+                    break
             
-            return
+            if not cheese_still_exists:
+                # Cheese was collected - stop chasing!
+                self.get_logger().info("🧀 Cheese collected - clearing memory")
+                self.last_cheese_x = None
+                self.last_cheese_y = None
+                self.cheese_chase_mode = False
+                # Don't return - fall through to exploration
+            else:
+                # Cheese still exists - navigate to it
+                if not self.is_navigating:
+                    self.get_logger().warn(f"🧀 Cheese lost - navigating to last position!")
+                    
+                    # Clear path to cheese
+                    gx, gy = self.world_to_grid(self.last_cheese_x, self.last_cheese_y)
+                    clear_radius = int(1.0 / self.resolution)
+                    
+                    for dx in range(-clear_radius, clear_radius + 1):
+                        for dy in range(-clear_radius, clear_radius + 1):
+                            nx, ny = gx + dx, gy + dy
+                            if self.is_valid_grid_cell(nx, ny):
+                                self.occupancy_grid[ny, nx] = 0
+                    
+                    self.send_navigation_goal((self.last_cheese_x, self.last_cheese_y))
+                
+                return
+
         
         # ====================================================================
         # PRIORITY 3: NAVIGATE
