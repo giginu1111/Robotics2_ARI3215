@@ -105,7 +105,7 @@ class CatBrainV2(Node):
         self.los_epsilon = 0.15
 
         # motion limits
-        self.max_lin = 0.8
+        self.max_lin = 0.6
         self.max_ang = 1.8
 
         # steering gains
@@ -132,7 +132,7 @@ class CatBrainV2(Node):
         self.arrival_radius = 0.35
 
         # escape behaviour
-        self.escape_speed = 0.85
+        self.escape_speed = 0.60
 
         self.cheese_count = 0
 
