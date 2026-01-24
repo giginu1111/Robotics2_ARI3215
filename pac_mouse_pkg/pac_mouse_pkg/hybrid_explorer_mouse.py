@@ -495,35 +495,6 @@ class ProposalMouseBrain(Node):
         cmd = Twist()
         current_time = self.get_clock().now().nanoseconds / 1e9
         
-        # ====================
-        # ✅ VICTORY MODE CHECK (All cheese eaten!)
-        # ====================
-        if len(self.cheese_models) == 0 and not self.victory_mode:
-            self.victory_mode = True
-            self.power_mode = False  # Disable temporary power mode
-            self.cat_detected = False  # Never flee in victory mode
-            self.get_logger().info("="*70)
-            self.get_logger().info("🏆🏆🏆 VICTORY MODE! 🏆🏆🏆")
-            self.get_logger().info("🍖 ALL CHEESE COLLECTED - HUNT THE CAT FOREVER!")
-            self.get_logger().info("⚡ PERMANENT POWER MODE ACTIVATED!")
-            self.get_logger().info("="*70)
-        
-        # ====================
-        # POWER MODE TIMER (Only if NOT in victory mode)
-        # ====================
-        if self.power_mode and not self.victory_mode:
-            elapsed = current_time - self.power_mode_timer
-            if elapsed > self.power_mode_duration:
-                self.get_logger().info("⚡ Power mode EXPIRED!")
-                self.power_mode = False
-            else:
-                remaining = self.power_mode_duration - elapsed
-                if int(remaining) % 2 == 0:
-                    self.get_logger().info(
-                        f"⚡ POWER MODE: {remaining:.1f}s remaining!",
-                        throttle_duration_sec=2.0
-                    )
-        
         # ====================================================================
         # PRIORITY 0: OBSTACLE COLLISION PREVENTION
         # ====================================================================
@@ -1101,40 +1072,47 @@ class ProposalMouseBrain(Node):
             self.goal_rejection_count = 0
     
     def collect_cheese(self):
-        """✅ FIXED: Cheese collection with immediate memory clear"""
+        """✅ FIXED: Cheese collection - power mode ONLY when ALL cheese eaten"""
         min_dist = float('inf')
         closest_cheese = None
-        
+
         for cheese in self.cheese_models:
             dist = math.hypot(self.robot_x - cheese['x'], 
                             self.robot_y - cheese['y'])
             if dist < min_dist:
                 min_dist = dist
                 closest_cheese = cheese
-        
+
         if closest_cheese and min_dist < 1.5:
-            # ✅ CLEAR MEMORY FIRST (before any delays)
+            # ✅ CLEAR MEMORY FIRST
             self.last_cheese_x = None
             self.last_cheese_y = None
             self.cheese_chase_mode = False
-            self.cheese_visible = False  # ✅ Also clear camera detection
-            
+            self.cheese_visible = False
+
             self.delete_gazebo_model(closest_cheese['name'])
             self.score_pub.publish(String(data=closest_cheese['name']))
             self.cheese_models.remove(closest_cheese)
             self.get_logger().info(f"🎯 Collected {closest_cheese['name']}!")
-            
-            if closest_cheese['name'] == 'cheese_3':
-                self.power_mode = True
-                self.power_mode_timer = self.get_clock().now().nanoseconds / 1e9
+
+            # ✅ FIXED: Check if this was the LAST cheese
+            if len(self.cheese_models) == 0:
+                # ALL CHEESE COLLECTED - ACTIVATE PERMANENT VICTORY MODE!
+                self.victory_mode = True
+                self.power_mode = False  # No temporary power mode
                 self.cat_detected = False
                 self.get_logger().info("="*70)
-                self.get_logger().info("⚡⚡⚡ POWER MODE ACTIVATED! ⚡⚡⚡")
-                self.get_logger().info("🍖 CAT IS NOW PREY! HUNT IT DOWN!")
-                self.get_logger().info(f"⏱️  {self.power_mode_duration} seconds remaining!")
+                self.get_logger().info("🏆🏆🏆 ALL CHEESE COLLECTED! 🏆🏆🏆")
+                self.get_logger().info("⚡⚡⚡ PERMANENT POWER MODE ACTIVATED! ⚡⚡⚡")
+                self.get_logger().info("🍖 NOW HUNT THE CAT FOREVER!")
                 self.get_logger().info("="*70)
-            
+            else:
+                # Still more cheese to collect
+                remaining = len(self.cheese_models)
+                self.get_logger().info(f"🧀 {remaining} cheese remaining")
+
             self.occupancy_grid.fill(-1)
+
     
     def delete_gazebo_model(self, model_name):
         """Remove model from Gazebo"""
