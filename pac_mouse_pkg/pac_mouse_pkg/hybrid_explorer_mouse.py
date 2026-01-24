@@ -1,6 +1,6 @@
 """
 =============================================================================
-ADVANCED MOUSE BRAIN CONTROLLER - ENHANCED VERSION V2
+ADVANCED MOUSE BRAIN CONTROLLER - ENHANCED VERSION V3
 =============================================================================
 OVERVIEW:
 This node implements an intelligent mouse controller that combines multiple
@@ -19,8 +19,9 @@ FEATURES:
 ✅ FAST CHEESE PURSUIT: High-speed direct approach (0.8 m/s)
 ✅ SMART CAT ESCAPE: Uses Nav2 for intelligent escape routing
 ✅ CORNER DETECTION: Detects and escapes local minima
-✅ GOAL VALIDATION: Prevents unsafe Nav2 goals
+✅ ENHANCED GOAL VALIDATION: Prevents unsafe Nav2 goals BEFORE sending
 ✅ WALL UNSTUCK: Automatic backup when stuck against walls
+✅ FALLBACK TO VISUAL SERVOING: When Nav2 goals are impossible
 
 BEHAVIORAL STATES:
 CHASE_CHEESE: Visual servoing to visible cheese (with wall detection)
@@ -154,7 +155,7 @@ class ProposalMouseBrain(Node):
         # ====================================================================
         self.control_timer = self.create_timer(0.1, self.control_loop)
         
-        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V2: ONLINE")
+        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V3: ONLINE")
         self.get_logger().info("✅ Collision prevention: ACTIVE")
         self.get_logger().info("✅ Wall avoidance during cheese chase: ACTIVE")
         self.get_logger().info("✅ Cheese map clearing: ACTIVE")
@@ -162,8 +163,9 @@ class ProposalMouseBrain(Node):
         self.get_logger().info("🚀 FAST cheese pursuit: ACTIVE (0.8 m/s)")
         self.get_logger().info("🧠 Smart Nav2 cat escape: ACTIVE")
         self.get_logger().info("🚨 Corner detection & escape: ACTIVE")
-        self.get_logger().info("🛡️ Goal validation: ACTIVE")
+        self.get_logger().info("🛡️ ENHANCED goal validation: ACTIVE")
         self.get_logger().info("🔓 Wall unstuck: ACTIVE")
+        self.get_logger().info("⚡ Fast turns: 15 rad/s (860°/s)")
     
     def odometry_callback(self, msg):
         """Mouse odometry callback"""
@@ -514,14 +516,46 @@ class ProposalMouseBrain(Node):
                     cheese_x = self.robot_x + cheese_distance * math.cos(self.robot_yaw + cheese_angle)
                     cheese_y = self.robot_y + cheese_distance * math.sin(self.robot_yaw + cheese_angle)
                     
-                    # Clear the goal area too
+                    # 🔥 CRITICAL: VALIDATE GOAL IS SAFE *BEFORE* CLEARING MAP
+                    gx_test, gy_test = self.world_to_grid(cheese_x, cheese_y)
+                    
+                    if not self.is_safe_location(gx_test, gy_test):
+                        self.get_logger().error(
+                            f"❌ Estimated cheese position ({cheese_x:.2f}, {cheese_y:.2f}) is UNSAFE!"
+                        )
+                        # Try visual servoing with slow approach instead
+                        self.get_logger().info("🐌 Switching to SLOW visual servoing approach")
+                        
+                        kp_angular = 0.006
+                        cmd.angular.z = -kp_angular * self.cheese_error
+                        cmd.linear.x = 0.15  # Very slow when wall-blocked
+                        self.cmd_pub.publish(cmd)
+                        return
+                    
+                    # Clear the goal area and path
                     gx, gy = self.world_to_grid(cheese_x, cheese_y)
-                    clear_radius = int(0.6 / self.resolution)
+                    clear_radius = int(0.8 / self.resolution)  # 🔥 INCREASED from 0.6
+                    
+                    # Clear goal area
                     for dx in range(-clear_radius, clear_radius + 1):
                         for dy in range(-clear_radius, clear_radius + 1):
                             nx, ny = gx + dx, gy + dy
                             if self.is_valid_grid_cell(nx, ny):
                                 self.occupancy_grid[nx, ny] = 0
+                    
+                    # 🔥 ALSO CLEAR PATH FROM ROBOT TO CHEESE
+                    steps = int(cheese_distance / self.resolution)
+                    for i in range(steps):
+                        t = i / max(steps, 1)
+                        path_x = self.robot_x + t * (cheese_x - self.robot_x)
+                        path_y = self.robot_y + t * (cheese_y - self.robot_y)
+                        path_gx, path_gy = self.world_to_grid(path_x, path_y)
+                        
+                        for dx in range(-2, 3):
+                            for dy in range(-2, 3):
+                                nx, ny = path_gx + dx, path_gy + dy
+                                if self.is_valid_grid_cell(nx, ny):
+                                    self.occupancy_grid[nx, ny] = 0
                     
                     self.send_navigation_goal((cheese_x, cheese_y))
                 return  # 🚨 IMPORTANT: Return here to wait for nav
@@ -717,51 +751,93 @@ class ProposalMouseBrain(Node):
         return True
     
     def send_navigation_goal(self, point):
-        """Send navigation goal to Nav2 with safety validation"""
+        """Send navigation goal to Nav2 with aggressive safety validation"""
         # ✅ PREVENT RETRY OF RECENTLY REJECTED GOALS
         goal_key = (round(point[0], 1), round(point[1], 1))
         if self.last_rejected_goal == goal_key and self.goal_rejection_count > 2:
             self.get_logger().error(
-                f"❌ Goal {point} rejected {self.goal_rejection_count} times - skipping!"
+                f"❌ Goal {point} rejected {self.goal_rejection_count} times - ABORTING!"
             )
             self.is_navigating = False
+            
+            # Force visual servoing fallback
+            if self.cheese_visible:
+                self.get_logger().info("🔄 Forcing visual servoing mode")
+            
             return
         
-        # ✅ VALIDATE GOAL IS SAFE BEFORE SENDING
+        # ✅ AGGRESSIVE VALIDATION: Check goal is safe BEFORE sending
         gx, gy = self.world_to_grid(point[0], point[1])
         
+        # Check if goal itself is safe
         if not self.is_safe_location(gx, gy):
             self.get_logger().warn(
-                f"⚠️ Goal ({point[0]:.2f}, {point[1]:.2f}) is UNSAFE - finding alternative..."
+                f"⚠️ Goal ({point[0]:.2f}, {point[1]:.2f}) is UNSAFE - searching for alternative..."
             )
             
-            # Try to find a safe nearby point
+            # Try to find a safe nearby point with larger search radius
             found_safe = False
-            for radius in range(1, 8):  # Search up to ~1.2m away
+            best_safe_point = None
+            min_distance = float('inf')
+            
+            for radius in range(1, 12):  # 🔥 INCREASED search radius from 8 to 12 (~1.8m)
                 for dx in range(-radius, radius + 1):
                     for dy in range(-radius, radius + 1):
                         if dx*dx + dy*dy <= radius*radius:
                             test_gx, test_gy = gx + dx, gy + dy
                             if self.is_safe_location(test_gx, test_gy):
                                 wx, wy = self.grid_to_world(test_gx, test_gy)
-                                point = (wx, wy)
-                                found_safe = True
-                                self.get_logger().info(
-                                    f"✅ Found safe alternative: ({wx:.2f}, {wy:.2f})"
-                                )
-                                break
-                    if found_safe:
-                        break
-                if found_safe:
-                    break
+                                
+                                # Prefer points closer to original goal
+                                dist_to_original = math.hypot(wx - point[0], wy - point[1])
+                                if dist_to_original < min_distance:
+                                    min_distance = dist_to_original
+                                    best_safe_point = (wx, wy)
+                                    found_safe = True
             
-            if not found_safe:
-                self.get_logger().error("❌ No safe goal found - aborting navigation")
+            if found_safe and best_safe_point:
+                point = best_safe_point
+                self.get_logger().info(
+                    f"✅ Found safe alternative: ({point[0]:.2f}, {point[1]:.2f}) "
+                    f"[{min_distance:.2f}m from original]"
+                )
+            else:
+                self.get_logger().error("❌ No safe goal found within 1.8m - ABORTING navigation")
                 self.is_navigating = False
                 self.last_rejected_goal = goal_key
                 self.goal_rejection_count += 1
                 return
         
+        # ✅ DOUBLE-CHECK: Verify path from robot to goal has some clearance
+        robot_gx, robot_gy = self.world_to_grid(self.robot_x, self.robot_y)
+        goal_gx, goal_gy = self.world_to_grid(point[0], point[1])
+        
+        # Sample 5 points along the path
+        for i in range(5):
+            t = (i + 1) / 6.0
+            check_gx = int(robot_gx + t * (goal_gx - robot_gx))
+            check_gy = int(robot_gy + t * (goal_gy - robot_gy))
+            
+            # Check if this path point is completely blocked
+            blocked_count = 0
+            for dx in range(-2, 3):
+                for dy in range(-2, 3):
+                    nx, ny = check_gx + dx, check_gy + dy
+                    if self.is_valid_grid_cell(nx, ny):
+                        if self.occupancy_grid[nx, ny] == 100:
+                            blocked_count += 1
+            
+            # If more than 80% of surrounding cells are blocked, path is bad
+            if blocked_count > 20:
+                self.get_logger().error(
+                    f"❌ Path to goal is heavily blocked at checkpoint {i+1}/5 - ABORTING"
+                )
+                self.is_navigating = False
+                self.last_rejected_goal = goal_key
+                self.goal_rejection_count += 1
+                return
+        
+        # Goal passed all checks - send it!
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose.header.frame_id = 'map'
         goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
@@ -774,7 +850,7 @@ class ProposalMouseBrain(Node):
         goal_msg.pose.pose.orientation.z = math.sin(angle / 2.0)
         goal_msg.pose.pose.orientation.w = math.cos(angle / 2.0)
         
-        self.get_logger().info(f"🎯 Sending goal: ({point[0]:.2f}, {point[1]:.2f})")
+        self.get_logger().info(f"🎯 Sending VALIDATED goal: ({point[0]:.2f}, {point[1]:.2f})")
         
         self.nav_client.wait_for_server()
         send_goal_future = self.nav_client.send_goal_async(goal_msg)
