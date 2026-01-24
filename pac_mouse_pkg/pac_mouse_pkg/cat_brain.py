@@ -105,7 +105,7 @@ class CatBrainV2(Node):
         self.los_epsilon = 0.15
 
         # motion limits
-        self.max_lin = 1.4
+        self.max_lin = 0.8
         self.max_ang = 1.8
 
         # steering gains
@@ -121,7 +121,7 @@ class CatBrainV2(Node):
         self.max_considered_range = 6.0  # cap for "infinite" lidar
 
         # patrol behaviour
-        self.patrol_speed = 0.85
+        self.patrol_speed = 0.70
         self.patrol_turn_speed = 0.8
         self.patrol_switch_time = 2.5
         self.current_patrol_dir = random.choice([-1, 1])
