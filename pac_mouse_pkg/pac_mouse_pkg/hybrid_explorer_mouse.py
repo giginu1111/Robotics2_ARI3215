@@ -1,6 +1,6 @@
 """
 =============================================================================
-ADVANCED MOUSE BRAIN CONTROLLER - FINAL VERSION V4.1
+ADVANCED MOUSE BRAIN CONTROLLER - FINAL VERSION V4.2
 =============================================================================
 AUTHOR: Damian Cutajar
 PROJECT: Pac-Mouse Autonomous Navigation System
@@ -51,10 +51,12 @@ KEY FEATURES:
     - Corner detection and escape
     - Nav2 goal validation before sending
 
-🐱 ADAPTIVE CAT RESPONSE
+🐱 ADAPTIVE CAT RESPONSE (WITH LINE-OF-SIGHT!)
     - Far detection: 5.0m danger radius
     - Close detection: 2.5m critical radius
+    - Line-of-sight checking (ignores cats behind walls!)
     - Nav2-based intelligent escape (3m flee distance)
+    - No goal spam - single escape goal until complete
     - Reactive turn-and-run fallback
     - Stuck detection (6 samples, 30cm movement threshold)
 
@@ -69,7 +71,7 @@ BEHAVIORAL STATE MACHINE:
 =============================================================================
 Priority 0: COLLISION RECOVERY (stop → reverse → resume)
 Priority 1: POWER CAT CHASE (visual servoing when powered)
-Priority 2: CAT FLEE (Nav2 + reactive escape)
+Priority 2: CAT FLEE (Nav2 for close, reactive for far, with LOS check)
 Priority 3: CHEESE PURSUIT (visual servoing + Nav2 fallback)
 Priority 4: EXPLORATION (frontier-based with cooldown)
 
@@ -85,19 +87,15 @@ Cheese Detection Threshold: 55,000 pixels²
 Cat Visual Detection: 500 pixels² minimum area
 
 =============================================================================
-CHANGE LOG V4.1:
+CHANGE LOG V4.2:
 =============================================================================
-[NEW] Static occupancy grid (no longer rolling window)
-[NEW] Absolute world coordinate system
-[NEW] Cat distance settings: 5.0m danger, 2.5m critical
-[FIXED] Power mode now properly hunts cat (not flees!)
-[FIXED] Cat detection logic with explicit power mode check
-[IMPROVED] Never forgets explored areas
-[IMPROVED] Memory efficiency with fixed map bounds
-[IMPROVED] Coordinate conversion for static mapping
-[IMPROVED] Enhanced logging for hunt/flee states
-[FIXED] Numpy array indexing [y, x] convention
-[FIXED] Grid boundary checking
+[NEW] Line-of-sight checking for cat detection
+[NEW] Smart escape goal management (no spam)
+[FIXED] Cat behind wall no longer triggers flee
+[FIXED] Escape goals don't cancel themselves
+[FIXED] Clear separation: Nav2 for close, reactive for far
+[IMPROVED] Status 5 (CANCELED) handling in callback
+[IMPROVED] Escape state logging
 
 =============================================================================
 """
@@ -235,12 +233,13 @@ class ProposalMouseBrain(Node):
         self.control_timer = self.create_timer(0.1, self.control_loop)
         
         self.get_logger().info("="*70)
-        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V4.1: ONLINE")
+        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V4.2: ONLINE")
         self.get_logger().info("="*70)
         self.get_logger().info("🗺️  Static mapping: ACTIVE (24x24m, never forgets)")
         self.get_logger().info("🎥 Cat camera detection: ACTIVE (Sky Blue HSV)")
+        self.get_logger().info("👁️  Line-of-sight checking: ACTIVE (ignores walls!)")
         self.get_logger().info("⚡ Power pellet mode: READY (10s duration)")
-        self.get_logger().info("🧠 Smart cat avoidance: ACTIVE")
+        self.get_logger().info("🧠 Smart cat avoidance: ACTIVE (no goal spam)")
         self.get_logger().info("🚀 Full-speed cheese: ACTIVE (0.8 m/s)")
         self.get_logger().info("🔄 Infinite loop fix: ACTIVE (3s cooldown)")
         self.get_logger().info(f"🐱 Cat detection: Danger={self.cat_danger_distance}m, Critical={self.cat_critical_distance}m")
@@ -256,8 +255,30 @@ class ProposalMouseBrain(Node):
         cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
         self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
     
+    def has_line_of_sight_to_cat(self):
+        """✅ NEW: Check if cat is visible (not blocked by walls)"""
+        if self.cat_distance == float('inf'):
+            return False
+        
+        # Check multiple points along line to cat
+        steps = int(self.cat_distance / self.resolution)
+        if steps < 1:
+            return True  # Too close to check, assume visible
+        
+        for i in range(1, steps):
+            t = i / steps
+            check_x = self.robot_x + t * (self.cat_x - self.robot_x)
+            check_y = self.robot_y + t * (self.cat_y - self.robot_y)
+            gx, gy = self.world_to_grid(check_x, check_y)
+            
+            if self.is_valid_grid_cell(gx, gy):
+                if self.occupancy_grid[gy, gx] == 100:  # Wall blocking!
+                    return False
+        
+        return True
+    
     def cat_odometry_callback(self, msg):
-        """✅ FIXED: Cat odometry callback with proper power mode handling"""
+        """✅ FIXED: Cat odometry with line-of-sight check"""
         self.cat_x = msg.pose.pose.position.x
         self.cat_y = msg.pose.pose.position.y
         
@@ -265,13 +286,21 @@ class ProposalMouseBrain(Node):
         dy = self.cat_y - self.robot_y
         self.cat_distance = math.hypot(dx, dy)
         
-        # ✅ FIXED: Explicit power mode check FIRST
+        # ✅ FIXED: Check power mode AND line of sight
         if self.power_mode:
             self.cat_detected = False  # Never flee when powered up!
         elif self.cat_distance < self.cat_danger_distance:
-            self.cat_detected = True   # Flee when cat is close
+            # ✅ NEW: Only flee if cat is actually visible!
+            if self.has_line_of_sight_to_cat():
+                self.cat_detected = True
+            else:
+                self.cat_detected = False
+                self.get_logger().info(
+                    f"🧱 Cat blocked by wall ({self.cat_distance:.2f}m) - ignoring",
+                    throttle_duration_sec=3.0
+                )
         else:
-            self.cat_detected = False  # Safe distance
+            self.cat_detected = False
     
     def lidar_callback(self, msg):
         """Enhanced LiDAR callback with static map updates"""
@@ -519,18 +548,18 @@ class ProposalMouseBrain(Node):
             )
         
         # ====================================================================
-        # PRIORITY 1: FLEE FROM CAT (Normal mode only!)
+        # ✅ PRIORITY 1: FLEE FROM CAT (Normal mode only, with LOS check!)
         # ====================================================================
         if self.cat_detected and not self.power_mode:
-            if self.is_navigating and self.nav_goal_handle:
-                self.nav_goal_handle.cancel_goal_async()
-                self.is_navigating = False
-            
             urgency = "CRITICAL" if self.cat_distance < self.cat_critical_distance else "WARNING"
             
+            # ✅ FIXED: Close range - use Nav2 (but DON'T spam goals!)
             if self.cat_distance < 1.5:
-                if (not self.cat_escape_goal_sent or 
-                    current_time - self.last_escape_goal_time > 2.0):
+                # ✅ NEW: Only send goal if NOT currently navigating away
+                if not self.is_navigating:
+                    # Cancel any old navigation first
+                    if self.nav_goal_handle:
+                        self.nav_goal_handle.cancel_goal_async()
                     
                     dx = self.robot_x - self.cat_x
                     dy = self.robot_y - self.cat_y
@@ -540,6 +569,7 @@ class ProposalMouseBrain(Node):
                     escape_x = self.robot_x + escape_distance * math.cos(escape_angle)
                     escape_y = self.robot_y + escape_distance * math.sin(escape_angle)
                     
+                    # Clear path to escape goal
                     for dist in np.arange(0, escape_distance, 0.2):
                         cx = self.robot_x + dist * math.cos(escape_angle)
                         cy = self.robot_y + dist * math.sin(escape_angle)
@@ -554,17 +584,28 @@ class ProposalMouseBrain(Node):
                                         self.occupancy_grid[ny, nx] = 0
                     
                     self.get_logger().warn(
-                        f"😱 CAT {urgency}! Escaping to ({escape_x:.2f}, {escape_y:.2f})",
-                        throttle_duration_sec=1.0
+                        f"😱 CAT {urgency}! Escaping to ({escape_x:.2f}, {escape_y:.2f})"
                     )
                     
                     self.send_navigation_goal((escape_x, escape_y))
                     self.cat_escape_goal_sent = True
                     self.last_escape_goal_time = current_time
+                else:
+                    # ✅ NEW: Already navigating away - let it finish!
+                    self.get_logger().info(
+                        f"🏃 Escaping via Nav2... (cat: {self.cat_distance:.2f}m)",
+                        throttle_duration_sec=1.0
+                    )
                 
                 return
             
+            # ✅ FIXED: Far range - reactive turn and run
             else:
+                # ✅ NEW: Cancel any navigation, use reactive control
+                if self.is_navigating and self.nav_goal_handle:
+                    self.nav_goal_handle.cancel_goal_async()
+                    self.is_navigating = False
+                
                 self.cat_escape_goal_sent = False
                 
                 dx = self.robot_x - self.cat_x
@@ -572,6 +613,7 @@ class ProposalMouseBrain(Node):
                 escape_angle_world = math.atan2(dy, dx)
                 escape_angle_rel = self.normalize_angle(escape_angle_world - self.robot_yaw)
                 
+                # Stuck detection
                 self.stuck_detection_poses.append((self.robot_x, self.robot_y, current_time))
                 self.stuck_detection_poses = [p for p in self.stuck_detection_poses 
                                              if current_time - p[2] < 2.0]
@@ -598,6 +640,11 @@ class ProposalMouseBrain(Node):
                     cmd.linear.x = 0.5 if self.cat_distance < self.cat_critical_distance else 0.4
                 else:
                     cmd.linear.x = 0.15
+                
+                self.get_logger().info(
+                    f"🔄 Reactive flee: cat {self.cat_distance:.2f}m, turn {escape_angle_rel:.2f}rad",
+                    throttle_duration_sec=0.5
+                )
                 
                 self.cmd_pub.publish(cmd)
                 return
@@ -1019,16 +1066,22 @@ class ProposalMouseBrain(Node):
         result_future.add_done_callback(self.goal_result_callback)
     
     def goal_result_callback(self, future):
-        """Handle goal completion"""
+        """✅ UPDATED: Handle goal completion with status 5"""
         result = future.result()
         self.is_navigating = False
         
-        if result.status == 4:
+        if result.status == 4:  # SUCCEEDED
             self.get_logger().info('✅ Goal reached')
             self.goal_rejection_count = 0
             self.last_rejected_goal = None
-        elif result.status == 6:
-            self.get_logger().error('❌ Goal REJECTED!')
+        
+        elif result.status == 5:  # ✅ CANCELED (intentional)
+            self.get_logger().info('🔄 Goal CANCELED (switched priority)')
+            self.goal_rejection_count = 0  # Reset - this is intentional
+            self.last_rejected_goal = None
+        
+        elif result.status == 6:  # ABORTED
+            self.get_logger().error('❌ Goal ABORTED by Nav2!')
             self.goal_rejection_count += 1
             robot_gx, robot_gy = self.world_to_grid(self.robot_x, self.robot_y)
             for dx in range(-10, 11):
@@ -1037,8 +1090,9 @@ class ProposalMouseBrain(Node):
                     if self.is_valid_grid_cell(nx, ny):
                         if self.occupancy_grid[ny, nx] == 100:
                             self.occupancy_grid[ny, nx] = -1
+        
         else:
-            self.get_logger().warn(f'⚠️ Nav failed (status: {result.status})')
+            self.get_logger().warn(f'⚠️ Nav status: {result.status}')
             self.goal_rejection_count = 0
     
     def collect_cheese(self):
