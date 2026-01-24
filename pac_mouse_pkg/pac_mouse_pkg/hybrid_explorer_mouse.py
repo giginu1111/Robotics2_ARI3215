@@ -587,7 +587,7 @@ class ProposalMouseBrain(Node):
         if self.cat_detected and not self.victory_mode:
             urgency = "CRITICAL" if self.cat_distance < self.cat_critical_distance else "WARNING"
             
-            if self.cat_distance < 1.5:
+            if self.cat_distance > 2:
                 if not self.is_navigating:
                     if self.nav_goal_handle:
                         self.nav_goal_handle.cancel_goal_async()
