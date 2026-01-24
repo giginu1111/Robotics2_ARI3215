@@ -110,7 +110,7 @@ class ProposalMouseBrain(Node):
         # ====================================================================
         self.linear_speed = 2.0
         self.angular_speed = 2.0
-        self.cheese_threshold = 55000
+        self.cheese_threshold = 13750
         
         # 🗺️ STATIC MAP SETTINGS (Fixed world frame - never forgets!)
         self.resolution = 0.15              # 0.15m per cell (fast processing)
