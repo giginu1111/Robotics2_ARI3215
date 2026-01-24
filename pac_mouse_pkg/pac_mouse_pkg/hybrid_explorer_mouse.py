@@ -435,8 +435,8 @@ class ProposalMouseBrain(Node):
             # ====================
             # CAT DETECTION (Sky Blue)
             # ====================
-            lower_cat = np.array([90, 80, 100])
-            upper_cat = np.array([110, 255, 255])
+            lower_cat = np.array([95, 150, 150])
+            upper_cat = np.array([105, 255, 255])
             cat_mask = cv2.inRange(hsv, lower_cat, upper_cat)
             
             cat_contours, _ = cv2.findContours(cat_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
