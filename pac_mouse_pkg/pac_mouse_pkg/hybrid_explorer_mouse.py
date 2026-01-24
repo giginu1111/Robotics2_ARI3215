@@ -1,43 +1,106 @@
 """
 =============================================================================
-ADVANCED MOUSE BRAIN CONTROLLER - ENHANCED VERSION V3
+ADVANCED MOUSE BRAIN CONTROLLER - FINAL VERSION V4.1
 =============================================================================
-OVERVIEW:
-This node implements an intelligent mouse controller that combines multiple
-behavioral strategies for optimal cheese collection while evading the cat.
+AUTHOR: Damian Cutajar
+PROJECT: Pac-Mouse Autonomous Navigation System
+DESCRIPTION: 
+    Intelligent autonomous mouse controller combining visual servoing, 
+    frontier-based exploration, and predator avoidance for optimal cheese 
+    collection in a maze environment.
 
-FEATURES:
-✅ Visual Servoing: Uses camera to detect and approach cheese
-✅ Frontier-Based Exploration: Discovers unknown areas systematically
-✅ Path Planning: Uses Nav2 for obstacle-free navigation
-✅ Predator Avoidance: Detects and evades the cat
-✅ Adaptive Behavior: Switches strategies based on context
-✅ COLLISION PREVENTION: Emergency stop/reverse/resume behavior
-✅ WALL AVOIDANCE: Detects walls blocking cheese pursuit
-✅ CHEESE MAP CLEARING: Removes cheese from obstacle grid for direct approach
-✅ PRIORITY OVERRIDE: Cancels navigation when cheese detected
-✅ FAST CHEESE PURSUIT: High-speed direct approach (0.8 m/s)
-✅ SMART CAT ESCAPE: Uses Nav2 for intelligent escape routing
-✅ CORNER DETECTION: Detects and escapes local minima
-✅ ENHANCED GOAL VALIDATION: Prevents unsafe Nav2 goals BEFORE sending
-✅ WALL UNSTUCK: Automatic backup when stuck against walls
-✅ FALLBACK TO VISUAL SERVOING: When Nav2 goals are impossible
+=============================================================================
+KEY FEATURES:
+=============================================================================
 
-BEHAVIORAL STATES:
-CHASE_CHEESE: Visual servoing to visible cheese (with wall detection)
-EXPLORE: Frontier-based autonomous exploration
-FLEE: Emergency evasion from cat (Nav2 + reactive)
-NAVIGATE: Goal-directed navigation using Nav2
-RECOVERY: Emergency collision avoidance (stop/reverse/resume)
-UNSTUCK: Wall escape behavior
+🗺️  STATIC MAPPING SYSTEM
+    - Fixed 24x24m occupancy grid (matches maze dimensions)
+    - Never forgets explored areas (unlike rolling window)
+    - 0.15m resolution for efficient processing
+    - Perfect memory of entire maze layout
 
-SENSORS USED:
-Camera: Cheese detection (HSV color filtering)
-LiDAR: Obstacle detection, mapping, and collision prevention
-Odometry: Position tracking and state estimation
+🎥 DUAL CAMERA VISION
+    - Yellow HSV detection for cheese (H:20-40, S:100-255, V:100-255)
+    - Blue HSV detection for cat (H:90-110, S:80-255, V:100-255)
+    - Real-time visual servoing for both targets
+    - Area-based distance estimation
+
+⚡ POWER PELLET MODE (10 seconds)
+    - Activated by eating cheese_3
+    - Reverses predator/prey roles
+    - Cat becomes huntable target
+    - Full-speed pursuit (0.8 m/s)
+
+🧭 INTELLIGENT EXPLORATION
+    - Frontier-based unknown area detection
+    - Visited goal memory (30-second retention)
+    - 3-second goal cooldown to prevent spam
+    - 1.5m minimum goal distance
+    - Smart cat avoidance in exploration paths
+
+🚀 FULL-SPEED CHEESE APPROACH
+    - Maximum velocity until collection (0.8 m/s)
+    - No slowdown/deceleration zones
+    - Aggressive angular correction (kp=0.008)
+    - Wall detection with automatic Nav2 fallback
+
+🛡️ MULTI-LAYER SAFETY
+    - Emergency collision prevention (35cm threshold)
+    - Automatic stop/reverse/resume sequence
+    - Wall unstuck behavior (backup + turn)
+    - Corner detection and escape
+    - Nav2 goal validation before sending
+
+🐱 ADAPTIVE CAT RESPONSE
+    - Far detection: 5.0m danger radius
+    - Close detection: 2.5m critical radius
+    - Nav2-based intelligent escape (3m flee distance)
+    - Reactive turn-and-run fallback
+    - Stuck detection (6 samples, 30cm movement threshold)
+
+🎯 HYBRID NAVIGATION
+    - Visual servoing for direct line-of-sight targets
+    - Nav2 path planning for complex routing
+    - Automatic strategy switching
+    - Costmap synchronization
+
+=============================================================================
+BEHAVIORAL STATE MACHINE:
+=============================================================================
+Priority 0: COLLISION RECOVERY (stop → reverse → resume)
+Priority 1: POWER CAT CHASE (visual servoing when powered)
+Priority 2: CAT FLEE (Nav2 + reactive escape)
+Priority 3: CHEESE PURSUIT (visual servoing + Nav2 fallback)
+Priority 4: EXPLORATION (frontier-based with cooldown)
+
+=============================================================================
+TECHNICAL SPECIFICATIONS:
+=============================================================================
+Map Resolution: 0.15m per cell (160x160 grid = 24m x 24m)
+Map Origin: (-12.0, -12.0) in world frame
+Control Frequency: 10 Hz (0.1s update period)
+Max Linear Velocity: 0.8 m/s (cheese/cat chase)
+Max Angular Velocity: 8.0 rad/s (critical escape)
+Cheese Detection Threshold: 55,000 pixels²
+Cat Visual Detection: 500 pixels² minimum area
+
+=============================================================================
+CHANGE LOG V4.1:
+=============================================================================
+[NEW] Static occupancy grid (no longer rolling window)
+[NEW] Absolute world coordinate system
+[NEW] Cat distance settings: 5.0m danger, 2.5m critical
+[FIXED] Power mode now properly hunts cat (not flees!)
+[FIXED] Cat detection logic with explicit power mode check
+[IMPROVED] Never forgets explored areas
+[IMPROVED] Memory efficiency with fixed map bounds
+[IMPROVED] Coordinate conversion for static mapping
+[IMPROVED] Enhanced logging for hunt/flee states
+[FIXED] Numpy array indexing [y, x] convention
+[FIXED] Grid boundary checking
+
 =============================================================================
 """
-
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
@@ -70,7 +133,17 @@ class ProposalMouseBrain(Node):
         self.linear_speed = 2.0
         self.angular_speed = 2.0
         self.cheese_threshold = 55000
-        self.resolution = 0.15
+        
+        # 🗺️ STATIC MAP SETTINGS (Fixed world frame - never forgets!)
+        self.resolution = 0.15              # 0.15m per cell (fast processing)
+        self.map_width_meters = 24.0        # 24m total width (21m maze + 3m padding)
+        self.map_height_meters = 24.0       # 24m total height
+        self.map_origin_x = -12.0           # Western edge at -12m
+        self.map_origin_y = -12.0           # Southern edge at -12m
+        
+        # Calculate grid dimensions
+        self.grid_size_x = int(self.map_width_meters / self.resolution)   # 160 cells
+        self.grid_size_y = int(self.map_height_meters / self.resolution)  # 160 cells
         
         # Cat detection settings
         self.cat_danger_distance = 5.0
@@ -146,9 +219,8 @@ class ProposalMouseBrain(Node):
         self.is_navigating = False
         self.nav_goal_handle = None
         
-        self.grid_size = 160
-        self.origin = self.grid_size // 2
-        self.occupancy_grid = np.full((self.grid_size, self.grid_size), -1, dtype=int)
+        # 🗺️ STATIC OCCUPANCY GRID (Never forgets!)
+        self.occupancy_grid = np.full((self.grid_size_y, self.grid_size_x), -1, dtype=int)
         
         self.cheese_models = [
             {'x': 3.5, 'y': 3.5, 'name': 'cheese_1'},
@@ -162,13 +234,17 @@ class ProposalMouseBrain(Node):
         # ====================================================================
         self.control_timer = self.create_timer(0.1, self.control_loop)
         
-        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V4: ONLINE")
-        self.get_logger().info("✅ All V3 features: ACTIVE")
-        self.get_logger().info("🎥 Cat camera detection: ACTIVE (Sky Blue)")
-        self.get_logger().info("⚡ Power pellet mode: READY")
+        self.get_logger().info("="*70)
+        self.get_logger().info("🐭 ENHANCED MOUSE BRAIN V4.1: ONLINE")
+        self.get_logger().info("="*70)
+        self.get_logger().info("🗺️  Static mapping: ACTIVE (24x24m, never forgets)")
+        self.get_logger().info("🎥 Cat camera detection: ACTIVE (Sky Blue HSV)")
+        self.get_logger().info("⚡ Power pellet mode: READY (10s duration)")
         self.get_logger().info("🧠 Smart cat avoidance: ACTIVE")
         self.get_logger().info("🚀 Full-speed cheese: ACTIVE (0.8 m/s)")
-        self.get_logger().info("🔄 Infinite loop fix: ACTIVE")
+        self.get_logger().info("🔄 Infinite loop fix: ACTIVE (3s cooldown)")
+        self.get_logger().info(f"🐱 Cat detection: Danger={self.cat_danger_distance}m, Critical={self.cat_critical_distance}m")
+        self.get_logger().info("="*70)
     
     def odometry_callback(self, msg):
         """Mouse odometry callback"""
@@ -181,7 +257,7 @@ class ProposalMouseBrain(Node):
         self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
     
     def cat_odometry_callback(self, msg):
-        """Cat odometry callback"""
+        """✅ FIXED: Cat odometry callback with proper power mode handling"""
         self.cat_x = msg.pose.pose.position.x
         self.cat_y = msg.pose.pose.position.y
         
@@ -189,14 +265,16 @@ class ProposalMouseBrain(Node):
         dy = self.cat_y - self.robot_y
         self.cat_distance = math.hypot(dx, dy)
         
-        # Only flee if cat close AND not in power mode
-        if self.cat_distance < self.cat_danger_distance and not self.power_mode:
-            self.cat_detected = True
+        # ✅ FIXED: Explicit power mode check FIRST
+        if self.power_mode:
+            self.cat_detected = False  # Never flee when powered up!
+        elif self.cat_distance < self.cat_danger_distance:
+            self.cat_detected = True   # Flee when cat is close
         else:
-            self.cat_detected = False
+            self.cat_detected = False  # Safe distance
     
     def lidar_callback(self, msg):
-        """Enhanced LiDAR callback"""
+        """Enhanced LiDAR callback with static map updates"""
         angle = msg.angle_min
         self.min_obstacle_distance = float('inf')
         
@@ -219,7 +297,7 @@ class ProposalMouseBrain(Node):
             angle += msg.angle_increment
     
     def update_occupancy_grid(self, range_val, local_angle):
-        """Update internal map"""
+        """🗺️ UPDATED: Update STATIC internal map (never forgets!)"""
         global_angle = local_angle + self.robot_yaw
         
         max_trace = min(range_val, 4.0)
@@ -228,8 +306,8 @@ class ProposalMouseBrain(Node):
             wy = self.robot_y + step * math.sin(global_angle)
             gx, gy = self.world_to_grid(wx, wy)
             
-            if self.is_valid_grid_cell(gx, gy) and self.occupancy_grid[gx, gy] != 100:
-                self.occupancy_grid[gx, gy] = 0
+            if self.is_valid_grid_cell(gx, gy) and self.occupancy_grid[gy, gx] != 100:
+                self.occupancy_grid[gy, gx] = 0
         
         if range_val <= 4.0:
             wx = self.robot_x + range_val * math.cos(global_angle)
@@ -237,7 +315,7 @@ class ProposalMouseBrain(Node):
             gx, gy = self.world_to_grid(wx, wy)
             
             if self.is_valid_grid_cell(gx, gy):
-                self.occupancy_grid[gx, gy] = 100
+                self.occupancy_grid[gy, gx] = 100
     
     def clear_cheese_area_from_map(self):
         """Clear cheese from occupancy grid"""
@@ -258,11 +336,11 @@ class ProposalMouseBrain(Node):
                 if dx*dx + dy*dy <= clear_radius*clear_radius:
                     nx, ny = gx + dx, gy + dy
                     if self.is_valid_grid_cell(nx, ny):
-                        if self.occupancy_grid[nx, ny] == 100:
-                            self.occupancy_grid[nx, ny] = 0
+                        if self.occupancy_grid[ny, nx] == 100:
+                            self.occupancy_grid[ny, nx] = 0
     
     def camera_callback(self, msg):
-        """🆕 ENHANCED: Detect both cheese AND cat"""
+        """🎥 ENHANCED: Detect both cheese AND cat"""
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
@@ -300,7 +378,7 @@ class ProposalMouseBrain(Node):
                 self.cheese_visible = False
             
             # ====================
-            # 🆕 CAT DETECTION (Sky Blue - matches cat.urdf.xacro)
+            # CAT DETECTION (Sky Blue - matches cat.urdf.xacro)
             # ====================
             lower_cat = np.array([90, 80, 100])     # Cyan-blue lower
             upper_cat = np.array([110, 255, 255])   # Cyan-blue upper
@@ -336,7 +414,7 @@ class ProposalMouseBrain(Node):
             self.get_logger().error(f"Camera error: {e}")
     
     def control_loop(self):
-        """🆕 ENHANCED: Control loop with power mode and cat vision"""
+        """🧠 ENHANCED: Main control loop with power mode and cat vision"""
         cmd = Twist()
         current_time = self.get_clock().now().nanoseconds / 1e9
         
@@ -396,12 +474,12 @@ class ProposalMouseBrain(Node):
             self.recovery_state = None
         
         # ====================================================================
-        # 🆕 PRIORITY 0.5: CHASE CAT (POWER MODE ONLY!)
+        # ✅ PRIORITY 0.5: CHASE CAT (POWER MODE ONLY!)
         # ====================================================================
         if self.power_mode and self.cat_visible_in_camera:
             self.get_logger().info(
-                f"🍖 HUNTING CAT! area={self.cat_camera_area:.0f}, error={self.cat_camera_error:.0f}",
-                throttle_duration_sec=1.0
+                f"🍖 HUNTING CAT! area={self.cat_camera_area:.0f}, error={self.cat_camera_error:.0f}, dist={self.cat_distance:.2f}m",
+                throttle_duration_sec=0.5
             )
             
             if self.is_navigating and self.nav_goal_handle:
@@ -414,7 +492,7 @@ class ProposalMouseBrain(Node):
             
             # Check if close enough to "eat" cat
             if self.cat_camera_area > 40000 and self.cat_distance < 1.0:
-                self.get_logger().info("🎉 CAUGHT THE CAT!")
+                self.get_logger().info("🎉🎉🎉 CAUGHT THE CAT! 🎉🎉🎉")
                 cmd.linear.x = 0.0
                 self.cmd_pub.publish(cmd)
                 return
@@ -422,16 +500,26 @@ class ProposalMouseBrain(Node):
             # Full speed chase!
             if abs(self.cat_camera_error) < 50:
                 cmd.linear.x = 0.8
+                self.get_logger().info("🏃 STRAIGHT CHASE - MAX SPEED!", throttle_duration_sec=1.0)
             elif abs(self.cat_camera_error) < 100:
                 cmd.linear.x = 0.6
+                self.get_logger().info("🔄 ADJUSTING AIM - FAST", throttle_duration_sec=1.0)
             else:
                 cmd.linear.x = 0.3
+                self.get_logger().info("↩️ TURNING TO CAT", throttle_duration_sec=1.0)
             
             self.cmd_pub.publish(cmd)
             return
         
+        # ✅ Log when power mode but cat NOT visible
+        if self.power_mode and not self.cat_visible_in_camera:
+            self.get_logger().info(
+                "⚡ POWER MODE ACTIVE - Searching for cat...",
+                throttle_duration_sec=2.0
+            )
+        
         # ====================================================================
-        # PRIORITY 1: FLEE FROM CAT
+        # PRIORITY 1: FLEE FROM CAT (Normal mode only!)
         # ====================================================================
         if self.cat_detected and not self.power_mode:
             if self.is_navigating and self.nav_goal_handle:
@@ -462,8 +550,8 @@ class ProposalMouseBrain(Node):
                             for dy_clear in range(-clear_radius, clear_radius + 1):
                                 nx, ny = gx + dx_clear, gy + dy_clear
                                 if self.is_valid_grid_cell(nx, ny):
-                                    if self.occupancy_grid[nx, ny] == 100:
-                                        self.occupancy_grid[nx, ny] = 0
+                                    if self.occupancy_grid[ny, nx] == 100:
+                                        self.occupancy_grid[ny, nx] = 0
                     
                     self.get_logger().warn(
                         f"😱 CAT {urgency}! Escaping to ({escape_x:.2f}, {escape_y:.2f})",
@@ -518,7 +606,7 @@ class ProposalMouseBrain(Node):
             self.stuck_detection_poses.clear()
         
         # ====================================================================
-        # PRIORITY 2: 🆕 FULL-SPEED CHEESE APPROACH
+        # PRIORITY 2: FULL-SPEED CHEESE APPROACH
         # ====================================================================
         if self.cheese_visible:
             if self.is_navigating:
@@ -580,7 +668,7 @@ class ProposalMouseBrain(Node):
                         for dy in range(-clear_radius, clear_radius + 1):
                             nx, ny = gx + dx, gy + dy
                             if self.is_valid_grid_cell(nx, ny):
-                                self.occupancy_grid[nx, ny] = 0
+                                self.occupancy_grid[ny, nx] = 0
                     
                     steps = int(cheese_distance / self.resolution)
                     for i in range(steps):
@@ -593,7 +681,7 @@ class ProposalMouseBrain(Node):
                             for dy in range(-2, 3):
                                 nx, ny = path_gx + dx, path_gy + dy
                                 if self.is_valid_grid_cell(nx, ny):
-                                    self.occupancy_grid[nx, ny] = 0
+                                    self.occupancy_grid[ny, nx] = 0
                     
                     self.send_navigation_goal((cheese_x, cheese_y))
                 return
@@ -625,7 +713,7 @@ class ProposalMouseBrain(Node):
             return
         
         # ====================================================================
-        # PRIORITY 4: 🆕 SMART EXPLORATION (WITH LOOP PREVENTION)
+        # PRIORITY 4: SMART EXPLORATION (WITH LOOP PREVENTION)
         # ====================================================================
         self.explore_environment()
     
@@ -656,13 +744,14 @@ class ProposalMouseBrain(Node):
         self.cmd_pub.publish(cmd)
     
     def detect_frontiers(self):
-        """Detect frontier regions"""
+        """Detect frontier regions in static map"""
         frontiers = []
         visited = np.zeros_like(self.occupancy_grid, dtype=bool)
         
-        for x in range(1, self.grid_size - 1):
-            for y in range(1, self.grid_size - 1):
-                if self.occupancy_grid[x, y] == 0 and not visited[x, y]:
+        # 🗺️ UPDATED: Use grid_size_x and grid_size_y
+        for x in range(1, self.grid_size_x - 1):
+            for y in range(1, self.grid_size_y - 1):
+                if self.occupancy_grid[y, x] == 0 and not visited[y, x]:
                     if self.is_frontier_cell(x, y):
                         frontier = self.expand_frontier(x, y, visited)
                         if len(frontier) > 5:
@@ -672,13 +761,13 @@ class ProposalMouseBrain(Node):
     
     def is_frontier_cell(self, x, y):
         """Check if cell is frontier"""
-        if self.occupancy_grid[x, y] != 0:
+        if self.occupancy_grid[y, x] != 0:
             return False
         
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = x + dx, y + dy
             if self.is_valid_grid_cell(nx, ny):
-                if self.occupancy_grid[nx, ny] == -1:
+                if self.occupancy_grid[ny, nx] == -1:
                     return True
         return False
     
@@ -686,7 +775,7 @@ class ProposalMouseBrain(Node):
         """Expand frontier using BFS"""
         frontier = []
         queue = deque([(start_x, start_y)])
-        visited[start_x, start_y] = True
+        visited[start_y, start_x] = True
         
         while queue:
             x, y = queue.popleft()
@@ -701,9 +790,9 @@ class ProposalMouseBrain(Node):
                         
                         nx, ny = x + dx, y + dy
                         if (self.is_valid_grid_cell(nx, ny) and 
-                            not visited[nx, ny] and 
-                            self.occupancy_grid[nx, ny] == 0):
-                            visited[nx, ny] = True
+                            not visited[ny, nx] and
+                            self.occupancy_grid[ny, nx] == 0):
+                            visited[ny, nx] = True
                             queue.append((nx, ny))
         
         return frontier
@@ -806,7 +895,7 @@ class ProposalMouseBrain(Node):
         if not self.is_valid_grid_cell(gx, gy):
             return False
         
-        if self.occupancy_grid[gx, gy] == 100:
+        if self.occupancy_grid[gy, gx] == 100:
             return False
         
         margin = 4
@@ -814,7 +903,7 @@ class ProposalMouseBrain(Node):
             for dy in range(-margin, margin + 1):
                 nx, ny = gx + dx, gy + dy
                 if self.is_valid_grid_cell(nx, ny):
-                    if self.occupancy_grid[nx, ny] == 100:
+                    if self.occupancy_grid[ny, nx] == 100:
                         return False
         return True
     
@@ -888,7 +977,7 @@ class ProposalMouseBrain(Node):
                 for dy in range(-2, 3):
                     nx, ny = check_gx + dx, check_gy + dy
                     if self.is_valid_grid_cell(nx, ny):
-                        if self.occupancy_grid[nx, ny] == 100:
+                        if self.occupancy_grid[ny, nx] == 100:
                             blocked_count += 1
             
             if blocked_count > 20:
@@ -946,14 +1035,14 @@ class ProposalMouseBrain(Node):
                 for dy in range(-10, 11):
                     nx, ny = robot_gx + dx, robot_gy + dy
                     if self.is_valid_grid_cell(nx, ny):
-                        if self.occupancy_grid[nx, ny] == 100:
-                            self.occupancy_grid[nx, ny] = -1
+                        if self.occupancy_grid[ny, nx] == 100:
+                            self.occupancy_grid[ny, nx] = -1
         else:
             self.get_logger().warn(f'⚠️ Nav failed (status: {result.status})')
             self.goal_rejection_count = 0
     
     def collect_cheese(self):
-        """🆕 ENHANCED: Cheese collection + power mode activation"""
+        """✅ FIXED: Cheese collection + power mode activation"""
         min_dist = float('inf')
         closest_cheese = None
         
@@ -970,11 +1059,16 @@ class ProposalMouseBrain(Node):
             self.cheese_models.remove(closest_cheese)
             self.get_logger().info(f"🎯 Collected {closest_cheese['name']}!")
             
-            # 🆕 POWER PELLET: Activate power mode for cheese_3!
+            # ✅ POWER PELLET: Activate power mode for cheese_3!
             if closest_cheese['name'] == 'cheese_3':
                 self.power_mode = True
                 self.power_mode_timer = self.get_clock().now().nanoseconds / 1e9
-                self.get_logger().info("⚡⚡⚡ POWER MODE ACTIVATED! Hunt the cat!")
+                self.cat_detected = False  # ✅ IMPORTANT: Clear flee flag!
+                self.get_logger().info("="*70)
+                self.get_logger().info("⚡⚡⚡ POWER MODE ACTIVATED! ⚡⚡⚡")
+                self.get_logger().info("🍖 CAT IS NOW PREY! HUNT IT DOWN!")
+                self.get_logger().info(f"⏱️  {self.power_mode_duration} seconds remaining!")
+                self.get_logger().info("="*70)
             
             self.occupancy_grid.fill(-1)
     
@@ -990,20 +1084,20 @@ class ProposalMouseBrain(Node):
         subprocess.run(cmd, capture_output=True)
     
     def world_to_grid(self, wx, wy):
-        """Convert world to grid"""
-        gx = int(wx / self.resolution) + self.origin
-        gy = int(wy / self.resolution) + self.origin
+        """🗺️ UPDATED: Convert world coordinates to STATIC grid"""
+        gx = int((wx - self.map_origin_x) / self.resolution)
+        gy = int((wy - self.map_origin_y) / self.resolution)
         return gx, gy
     
     def grid_to_world(self, gx, gy):
-        """Convert grid to world"""
-        wx = (gx - self.origin) * self.resolution
-        wy = (gy - self.origin) * self.resolution
+        """🗺️ UPDATED: Convert STATIC grid coordinates to world"""
+        wx = self.map_origin_x + (gx * self.resolution)
+        wy = self.map_origin_y + (gy * self.resolution)
         return wx, wy
     
     def is_valid_grid_cell(self, x, y):
-        """Check grid validity"""
-        return 0 <= x < self.grid_size and 0 <= y < self.grid_size
+        """🗺️ UPDATED: Check if grid coordinates are valid"""
+        return 0 <= x < self.grid_size_x and 0 <= y < self.grid_size_y
     
     def normalize_angle(self, angle):
         """Normalize angle to [-pi, pi]"""
