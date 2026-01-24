@@ -520,7 +520,7 @@ class ProposalMouseBrain(Node):
         # ====================================================================
         if self.victory_mode and self.cat_visible_in_camera:
             # ✅ CHECK IF OBSTACLE BLOCKING CAT
-            if self.min_obstacle_distance < 0.8 and abs(self.cat_camera_error) < 100:
+            if self.min_obstacle_distance < 0.4 and abs(self.cat_camera_error) < 100:
                 # Obstacle blocking direct path to cat - use Nav2!
                 if not self.is_navigating:
                     self.get_logger().warn(f"🚧 Obstacle blocking cat! Using Nav2 routing...")
@@ -572,7 +572,7 @@ class ProposalMouseBrain(Node):
                 return
             
             if abs(self.cat_camera_error) < 50:
-                cmd.linear.x = 0.8
+                cmd.linear.x = 1.0
             elif abs(self.cat_camera_error) < 100:
                 cmd.linear.x = 0.6
             else:
