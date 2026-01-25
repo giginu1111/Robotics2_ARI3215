@@ -7,10 +7,10 @@
 
 A sophisticated autonomous robotics simulation implementing a Pac-Man-inspired chase game using ROS 2, where an intelligent mouse navigates a maze to collect cheese while evading a predatory cat with advanced AI behaviors.
 
-![Cat Robot](docs/images/cat.png)
+![Cat Robot](image.png)  
 *Doraemon Cat - The Hunter*
 
-![Mouse Robot](docs/images/mouse.png)
+![Mouse Robot](image-1.png)  
 *Pac-Mouse - The Explorer*
 
 ---
