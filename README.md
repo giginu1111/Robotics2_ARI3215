@@ -1,1 +1,941 @@
-# Robotics2_ARI3215
+# 🐭 Pac-Mouse: Autonomous Robot Chase Simulation 🐱
+
+[![ROS 2](https://img.shields.io/badge/ROS2-Jazzy-blue)](https://docs.ros.org/en/jazzy/index.html)
+[![Python](https://img.shields.io/badge/Python-3.10+-green)](https://www.python.org/)
+[![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-orange)](https://gazebosim.org/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-yellow.svg)](https://opensource.org/licenses/Apache-2.0)
+
+A sophisticated autonomous robotics simulation implementing a Pac-Man-inspired chase game using ROS 2, where an intelligent mouse navigates a maze to collect cheese while evading a predatory cat with advanced AI behaviors.
+
+![Cat Robot](docs/images/cat.png)
+*Doraemon Cat - The Hunter*
+
+![Mouse Robot](docs/images/mouse.png)
+*Pac-Mouse - The Explorer*
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [System Architecture](#system-architecture)
+- [Technical Stack](#technical-stack)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Robot Controllers](#robot-controllers)
+- [Game Mechanics](#game-mechanics)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+- [Development Team](#development-team)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## 🎯 Overview
+
+**Pac-Mouse** is an advanced robotics project developed for the ARI3215 Robotics 2 course. The simulation features two autonomous agents operating in a Gazebo environment:
+
+- **🐭 Pac-Mouse**: An intelligent mouse robot that explores the environment, collects cheese pieces, and uses strategic navigation to avoid capture
+- **🐱 Doraemon Cat**: A predator robot with sophisticated AI that hunts the mouse using sensor fusion, predictive pursuit, and dynamic obstacle avoidance
+
+The project demonstrates key robotics concepts including:
+- Multi-agent systems
+- Autonomous navigation
+- SLAM (Simultaneous Localization and Mapping)
+- Sensor fusion (LiDAR, Camera, Odometry)
+- Path planning and obstacle avoidance
+- State machine-based AI behaviors
+- Real-time decision making
+
+---
+
+## ✨ Features
+
+### 🤖 Autonomous Navigation
+- **SLAM Integration**: Real-time mapping using SLAM Toolbox
+- **Nav2 Stack**: Professional-grade navigation with dynamic path planning
+- **Obstacle Avoidance**: Advanced clearance-based steering with LiDAR sensor fusion
+- **Stuck Recovery**: Intelligent three-phase recovery (reverse, turn, forward) when trapped
+
+### 🧠 Intelligent Behaviors
+
+#### Mouse AI
+- **Exploration Modes**: Basic, smart, and hybrid explorer strategies
+- **Cheese Collection**: Goal-oriented navigation to cheese locations
+- **Escape Tactics**: Dynamic evasion when cat is detected
+- **Frontier Exploration**: Systematic environment discovery
+
+#### Cat AI
+- **State Machine**: PATROL → CHASE → INVESTIGATE → ESCAPE
+- **Predictive Pursuit**: Anticipates mouse movement for interception
+- **Visual Tracking**: Camera-based mouse detection with LiDAR validation
+- **Power Mode**: Reverses behavior when mouse collects 4 cheese pieces
+- **Wall-Aware Vision**: Prevents camera phasing through walls
+
+### 🎮 Game Mechanics
+- **Cheese System**: Collectible objectives that trigger power mode
+- **Dynamic Roles**: Cat becomes prey after 4 cheese collected
+- **Real-time Scoring**: Track performance and game statistics
+- **Multiple Controllers**: Teleop, autonomous, and hybrid control modes
+
+### 📊 Visualization
+- **RViz2 Integration**: Real-time robot state and sensor visualization
+- **TF Tree Visualization**: Complete transform tree display
+- **Map Updates**: Live SLAM map construction
+- **Sensor Overlays**: LiDAR scans, camera feeds, and odometry paths
+
+---
+
+## 🏗️ System Architecture
+
+### Multi-Agent System Design
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    GAME MASTER NODE                          │
+│  • Game State Management                                     │
+│  • Cheese Spawn/Collection Logic                             │
+│  • Score Tracking                                             │
+│  • Win/Loss Conditions                                        │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                ┌─────────────┴─────────────┐
+                │                           │
+┌───────────────▼──────────────┐ ┌─────────▼──────────────────┐
+│      MOUSE ROBOT STACK       │ │      CAT ROBOT STACK       │
+├──────────────────────────────┤ ├────────────────────────────┤
+│ Controllers:                 │ │ Controller:                │
+│  • explorer.py               │ │  • cat_brain.py            │
+│  • explorer_mouse.py         │ │                            │
+│  • smart_mouse.py            │ │ State Machine:             │
+│  • hybrid_explorer_mouse.py  │ │  • PATROL                  │
+│  • mouse_brain.py            │ │  • CHASE                   │
+│  • mouse_navigator.py        │ │  • INVESTIGATE             │
+│  • teleop.py                 │ │  • ESCAPE                  │
+│                              │ │                            │
+│ Sensors:                     │ │ Sensors:                   │
+│  • LiDAR (360°)             │ │  • LiDAR (360°)           │
+│  • Camera                    │ │  • Camera                  │
+│  • IMU                       │ │  • IMU                     │
+│  • Odometry                  │ │  • Odometry                │
+└──────────────────────────────┘ └────────────────────────────┘
+                │                            │
+                └────────────┬───────────────┘
+                             │
+            ┌────────────────▼─────────────────┐
+            │   GAZEBO SIMULATION ENVIRONMENT   │
+            │  • Physics Engine                 │
+            │  • Sensor Simulation              │
+            │  • World Model                    │
+            │  • Collision Detection            │
+            └───────────────────────────────────┘
+                             │
+            ┌────────────────▼─────────────────┐
+            │       NAVIGATION STACK            │
+            │  • SLAM Toolbox                   │
+            │  • Nav2 (Path Planning)           │
+            │  • Robot Localization             │
+            │  • Costmap Layers                 │
+            └───────────────────────────────────┘
+```
+
+### Communication Architecture
+
+```
+ROS 2 Topics:
+  /cat/cmd_vel          → Cat velocity commands
+  /mouse/cmd_vel        → Mouse velocity commands
+  /cat/odom             → Cat odometry
+  /mouse/odom           → Mouse odometry
+  /cat/scan             → Cat LiDAR data
+  /mouse/scan           → Mouse LiDAR data
+  /cat/camera           → Cat camera feed
+  /mouse/camera         → Mouse camera feed
+  /cheese_eaten         → Cheese collection events
+  /game_state           → Game status updates
+  /map                  → SLAM-generated map
+  /tf                   → Transform tree
+```
+
+---
+
+## 🛠️ Technical Stack
+
+### Core Framework
+- **ROS 2 Jazzy Jalisco** - Latest ROS 2 LTS distribution
+- **Python 3.10+** - Primary programming language
+- **Gazebo Harmonic** - Physics simulation and sensor modeling
+
+### Navigation & Mapping
+| Component | Purpose |
+|-----------|---------|
+| **Nav2** | Path planning, behavior trees, recovery behaviors |
+| **SLAM Toolbox** | Real-time mapping and localization |
+| **Robot Localization** | Multi-sensor odometry fusion (EKF) |
+| **TF2** | Coordinate frame transformations |
+
+### Dependencies
+```yaml
+ROS 2 Packages:
+  - rclpy                    # ROS 2 Python client library
+  - xacro                    # XML macro processing
+  - geometry_msgs            # Pose, Twist, Transform messages
+  - sensor_msgs              # LaserScan, Image, IMU messages
+  - nav_msgs                 # Odometry, Path, OccupancyGrid
+  - nav2_msgs                # Navigation actions and messages
+  - visualization_msgs       # RViz markers
+  - ros_gz_sim               # Gazebo integration
+  - ros_gz_bridge            # ROS-Gazebo communication bridge
+
+Python Libraries:
+  - transforms3d             # 3D transformations and quaternions
+  - numpy                    # Numerical computations
+  - opencv-python            # Image processing
+```
+
+### Build System
+- **ament_python** - Python package build tool for ROS 2
+- **colcon** - Meta build tool for ROS 2 workspaces
+
+---
+
+## 📥 Installation
+
+### Prerequisites
+
+- **Operating System**: Ubuntu 22.04 (Jammy Jellyfish) or Ubuntu 24.04 (Noble Numbat)
+- **ROS 2 Jazzy**: [Installation Guide](https://docs.ros.org/en/jazzy/Installation.html)
+- **Disk Space**: ~5 GB for dependencies and simulation assets
+
+### Step 1: Install System Dependencies
+
+```bash
+# Update package list
+sudo apt update
+
+# Install ROS 2 Jazzy packages
+sudo apt install -y \
+  ros-jazzy-ros-gz-sim \
+  ros-jazzy-ros-gz-bridge \
+  ros-jazzy-robot-localization \
+  ros-jazzy-slam-toolbox \
+  ros-jazzy-navigation2 \
+  ros-jazzy-nav2-bringup \
+  ros-jazzy-xacro \
+  ros-jazzy-rviz2
+
+# Install Python dependencies
+sudo apt install -y \
+  python3-transforms3d \
+  python3-opencv \
+  python3-numpy
+
+# Install utilities
+sudo apt install -y tmux xterm
+```
+
+### Step 2: Create ROS 2 Workspace
+
+```bash
+# Create workspace directory
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+
+# Clone the repository
+git clone https://github.com/giginu1111/Robotics2_ARI3215.git
+
+# Return to workspace root
+cd ~/ros2_ws
+```
+
+### Step 3: Build the Package
+
+```bash
+# Source ROS 2 environment
+source /opt/ros/jazzy/setup.bash
+
+# Build with symlink-install for easier development
+colcon build --symlink-install --packages-select pac_mouse_pkg
+
+# Source the workspace
+source install/setup.bash
+```
+
+### Step 4: Verify Installation
+
+```bash
+# Check if package is found
+ros2 pkg list | grep pac_mouse_pkg
+
+# List available nodes
+ros2 pkg executables pac_mouse_pkg
+```
+
+Expected output:
+```
+pac_mouse_pkg cat_brain
+pac_mouse_pkg explorer
+pac_mouse_pkg explorer_mouse
+pac_mouse_pkg game_master
+pac_mouse_pkg hybrid_explorer_mouse
+pac_mouse_pkg mouse_brain
+pac_mouse_pkg mouse_navigator
+pac_mouse_pkg smart_mouse
+pac_mouse_pkg smart_mouse_hew
+pac_mouse_pkg teleop
+```
+
+---
+
+## 🚀 Usage
+
+### Quick Start
+
+#### Launch Full Simulation
+
+```bash
+# Terminal 1: Launch Gazebo world and spawn robots
+ros2 launch pac_mouse_pkg simulation.launch.py
+
+# Terminal 2: Start mouse autonomous controller
+ros2 run pac_mouse_pkg hybrid_explorer_mouse
+
+# Terminal 3: Start cat AI
+ros2 run pac_mouse_pkg cat_brain
+
+# Terminal 4: Start game master
+ros2 run pac_mouse_pkg game_master
+
+# Terminal 5: Launch RViz for visualization
+rviz2 -d $(ros2 pkg prefix pac_mouse_pkg)/share/pac_mouse_pkg/rviz/config.rviz
+```
+
+#### Using Launch Files (Recommended)
+
+```bash
+# Launch everything with SLAM and navigation
+ros2 launch pac_mouse_pkg full_game.launch.py
+
+# Launch with teleoperation for mouse
+ros2 launch pac_mouse_pkg teleop_mode.launch.py
+
+# Launch visualization only
+ros2 launch pac_mouse_pkg rviz.launch.py
+```
+
+### Controller Options
+
+#### Mouse Controllers
+
+| Controller | Description | Complexity | Use Case |
+|------------|-------------|------------|----------|
+| `teleop.py` | Manual keyboard control | ⭐ | Testing, demonstration |
+| `explorer.py` | Basic wall-following | ⭐⭐ | Simple navigation |
+| `explorer_mouse.py` | Enhanced exploration | ⭐⭐⭐ | Autonomous exploration |
+| `smart_mouse.py` | Goal-oriented navigation | ⭐⭐⭐⭐ | Cheese collection |
+| `hybrid_explorer_mouse.py` | Advanced multi-strategy AI | ⭐⭐⭐⭐⭐ | Competition mode |
+
+```bash
+# Run specific mouse controller
+ros2 run pac_mouse_pkg <controller_name>
+
+# Examples:
+ros2 run pac_mouse_pkg smart_mouse
+ros2 run pac_mouse_pkg hybrid_explorer_mouse
+```
+
+#### Cat Controller
+
+```bash
+# Launch cat brain (only one controller available)
+ros2 run pac_mouse_pkg cat_brain
+```
+
+### Manual Control (Teleoperation)
+
+```bash
+# Control the mouse with keyboard
+ros2 run pac_mouse_pkg teleop
+
+# Controls:
+#   w/↑  : Move forward
+#   s/↓  : Move backward
+#   a/←  : Turn left
+#   d/→  : Turn right
+#   space: Stop
+#   q    : Quit
+```
+
+---
+
+## 🧠 Robot Controllers
+
+### Cat Brain (cat_brain.py)
+
+Advanced predator AI with multi-state behavior system.
+
+#### State Machine
+
+```
+┌─────────┐     Mouse     ┌──────────┐     Lost      ┌──────────────┐
+│ PATROL  │─────seen─────→│  CHASE   │────visual────→│ INVESTIGATE  │
+└─────────┘               └──────────┘               └──────────────┘
+     ↑                         │                            │
+     │                         │                            │
+     └─────────────────────────┴────────────────────────────┘
+                          Timeout
+
+                     4 Cheese Collected
+                            │
+                            ▼
+                     ┌──────────┐
+                     │  ESCAPE  │
+                     └──────────┘
+```
+
+#### Features
+- **Clearance-Based Steering**: Uses full 360° LiDAR for safe navigation
+- **Predictive Pursuit**: Anticipates mouse trajectory for efficient interception
+- **Wall-Aware Vision**: Prevents false positives from camera phasing
+- **Stuck Recovery**: Three-phase recovery (reverse → turn → forward)
+- **Adaptive Speed**: Dynamic velocity based on obstacle proximity
+
+#### Parameters
+
+```python
+# Perception
+sniff_radius = 1.2          # Detection range without line-of-sight
+belief_timeout = 5.0        # Time to remember last mouse position
+
+# Motion Limits
+max_lin = 0.6               # Maximum linear velocity (m/s)
+max_ang = 1.8               # Maximum angular velocity (rad/s)
+
+# Obstacle Avoidance
+avoid_dist = 0.60           # Hard stop distance (m)
+slow_dist = 1.0             # Begin deceleration distance (m)
+front_window_deg = 45.0     # Forward obstacle detection cone (degrees)
+
+# Behavior Tuning
+goal_blend = 0.65           # Chase aggressiveness (0=safe, 1=aggressive)
+escape_goal_blend = 0.35    # Escape caution (lower = more evasive)
+```
+
+### Mouse Controllers
+
+#### Hybrid Explorer Mouse (hybrid_explorer_mouse.py)
+
+Most advanced mouse controller with multi-strategy approach.
+
+**Strategies:**
+1. **Frontier Exploration**: Discovers unknown areas systematically
+2. **Goal-Oriented Navigation**: Direct path to cheese locations
+3. **Reactive Avoidance**: Real-time obstacle dodging
+4. **Escape Behavior**: Evasion when cat is detected
+5. **Memory-Based Planning**: Remembers explored areas
+
+**Features:**
+- A* pathfinding with dynamic replanning
+- Occupancy grid mapping
+- Cat detection and avoidance
+- Cheese prioritization based on distance and safety
+- Adaptive speed control
+
+#### Smart Mouse (smart_mouse.py)
+
+Simplified goal-oriented controller for reliable cheese collection.
+
+**Features:**
+- Direct navigation to nearest cheese
+- Basic obstacle avoidance
+- Cat proximity detection
+- Fallback to exploration when no cheese visible
+
+#### Explorer Mouse (explorer_mouse.py)
+
+Wall-following explorer with random walk behavior.
+
+**Features:**
+- Right/left wall following
+- Random direction changes
+- Basic collision avoidance
+
+---
+
+## 🎮 Game Mechanics
+
+### Objectives
+
+#### Mouse Objectives
+1. **Collect Cheese**: Navigate to and collect all 4 cheese pieces
+2. **Survive**: Avoid being caught by the cat for as long as possible
+3. **Activate Power Mode**: Collect all 4 cheese to reverse roles
+
+#### Cat Objectives
+1. **Hunt Mouse**: Track and catch the mouse before it collects 4 cheese
+2. **Survive Power Mode**: Escape from mouse after it becomes powered
+
+### Cheese System
+
+```python
+Cheese Locations: 4 pieces scattered in the maze
+Collection Radius: 0.5 meters
+Power Mode Trigger: 4 cheese collected
+Power Mode Effect: Cat enters ESCAPE state, mouse becomes hunter
+```
+
+### Scoring (Implemented in game_master.py)
+
+```python
+Points:
+  - Cheese Collected: +100 points
+  - Time Survived: +1 point/second
+  - Mouse Caught: -500 points (mouse) / +1000 points (cat)
+  - Power Mode Activated: +500 bonus points
+```
+
+### Win Conditions
+
+| Condition | Winner | Requirements |
+|-----------|--------|--------------|
+| All cheese collected + cat escaped | Mouse | 4 cheese + survive power mode |
+| Mouse caught before 4 cheese | Cat | Catch mouse in normal mode |
+| Timeout | Mouse | Survive until time limit |
+
+---
+
+## ⚙️ Configuration
+
+### URDF/XACRO Files
+
+Robot descriptions are located in `pac_mouse_pkg/urdf/`:
+
+```bash
+urdf/
+├── mouse.urdf.xacro        # Mouse robot definition
+├── cat.urdf.xacro          # Cat robot definition
+├── common_sensors.xacro    # Shared sensor definitions
+└── materials.xacro         # Visual materials and colors
+```
+
+#### Sensor Configuration
+
+```xml
+<!-- LiDAR Sensor -->
+<sensor name="lidar" type="ray">
+  <range>
+    <min>0.12</min>
+    <max>10.0</max>
+  </range>
+  <horizontal>
+    <samples>360</samples>
+    <min_angle>-3.14159</min_angle>
+    <max_angle>3.14159</max_angle>
+  </horizontal>
+  <update_rate>10</update_rate>
+</sensor>
+
+<!-- Camera Sensor -->
+<sensor name="camera" type="camera">
+  <image>
+    <width>640</width>
+    <height>480</height>
+  </image>
+  <update_rate>30</update_rate>
+</sensor>
+```
+
+### World Files
+
+Custom Gazebo worlds in `pac_mouse_pkg/worlds/`:
+
+```bash
+worlds/
+├── maze.world              # Main maze environment
+├── simple_test.world       # Simple testing arena
+└── competition.world       # Competition-ready map
+```
+
+### Navigation Configuration
+
+Nav2 parameters in `pac_mouse_pkg/config/`:
+
+```yaml
+config/
+├── nav2_params.yaml        # Navigation stack parameters
+├── slam_params.yaml        # SLAM Toolbox configuration
+├── ekf_params.yaml         # Robot localization (EKF)
+└── planner_params.yaml     # Path planner settings
+```
+
+#### Key Nav2 Parameters
+
+```yaml
+# Planner Configuration
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5
+      use_astar: true
+
+# Controller Configuration
+controller_server:
+  ros__parameters:
+    controller_frequency: 20.0
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      max_vel_x: 0.5
+      min_vel_x: -0.2
+      max_vel_theta: 1.5
+```
+
+---
+
+## 📁 Project Structure
+
+```
+Robotics2_ARI3215/
+├── pac_mouse_pkg/
+│   ├── config/                      # Configuration files
+│   │   ├── nav2_params.yaml
+│   │   ├── slam_params.yaml
+│   │   └── ekf_params.yaml
+│   ├── launch/                      # Launch files
+│   │   ├── simulation.launch.py
+│   │   ├── full_game.launch.py
+│   │   ├── navigation.launch.py
+│   │   └── rviz.launch.py
+│   ├── models/                      # Gazebo models
+│   │   ├── cheese/
+│   │   ├── obstacles/
+│   │   └── arena/
+│   ├── pac_mouse_pkg/              # Python source code
+│   │   ├── __init__.py
+│   │   ├── cat_brain.py            # Cat AI controller
+│   │   ├── explorer.py             # Basic explorer
+│   │   ├── explorer_mouse.py       # Enhanced explorer
+│   │   ├── game_master.py          # Game logic
+│   │   ├── hybrid_explorer_mouse.py # Advanced AI
+│   │   ├── mouse_brain.py          # Basic mouse AI
+│   │   ├── mouse_navigator.py      # Navigation utilities
+│   │   ├── smart_mouse.py          # Smart controller
+│   │   ├── smart_mouse_hew.py      # Alternative smart controller
+│   │   └── teleop.py               # Manual control
+│   ├── resource/                    # Package resources
+│   │   └── pac_mouse_pkg
+│   ├── rviz/                        # RViz configurations
+│   │   └── config.rviz
+│   ├── test/                        # Unit tests
+│   │   ├── test_copyright.py
+│   │   ├── test_flake8.py
+│   │   └── test_pep257.py
+│   ├── urdf/                        # Robot descriptions
+│   │   ├── mouse.urdf.xacro
+│   │   ├── cat.urdf.xacro
+│   │   ├── common_sensors.xacro
+│   │   └── materials.xacro
+│   ├── worlds/                      # Gazebo worlds
+│   │   ├── maze.world
+│   │   ├── simple_test.world
+│   │   └── competition.world
+│   ├── package.xml                  # Package manifest
+│   ├── setup.py                     # Python package setup
+│   └── setup.cfg                    # Setup configuration
+├── Documentation/                   # Project documentation
+│   ├── design_docs/
+│   ├── technical_reports/
+│   └── presentations/
+├── .gitignore                       # Git ignore rules
+├── .vscode/                         # VSCode settings
+├── dependencies.txt                 # Dependency installation commands
+├── frames_2026-01-18_23.03.10.gv   # TF tree visualization
+├── frames_2026-01-18_23.03.10.pdf  # TF tree PDF
+├── oldcat.xacro                     # Legacy cat URDF
+├── oldmouse.urdf.xacro             # Legacy mouse URDF
+└── README.md                        # This file
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### 1. Package Not Found
+
+```bash
+# Symptom
+Package 'pac_mouse_pkg' not found
+
+# Solution
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --packages-select pac_mouse_pkg
+source install/setup.bash
+```
+
+#### 2. Gazebo Won't Launch
+
+```bash
+# Symptom
+Gazebo fails to start or crashes immediately
+
+# Solution
+# Clear Gazebo cache
+rm -rf ~/.gazebo/
+
+# Reinstall Gazebo
+sudo apt install --reinstall ros-jazzy-ros-gz-sim
+
+# Check for port conflicts
+killall gzserver gzclient
+```
+
+#### 3. Cat Crashes Into Walls
+
+```bash
+# Symptom
+Cat gets stuck in corners or phases through walls
+
+# Solution
+# Ensure you're using the updated cat_brain.py with:
+# - avoid_dist = 0.60
+# - slow_dist = 1.0
+# - front_window_deg = 45.0
+# - Three-phase recovery system
+
+# Verify LiDAR is publishing
+ros2 topic echo /cat/scan --once
+```
+
+#### 4. Mouse Doesn't Move
+
+```bash
+# Symptom
+Mouse spawns but doesn't navigate
+
+# Solution
+# Check if controller is running
+ros2 node list | grep mouse
+
+# Verify odometry
+ros2 topic echo /mouse/odom --once
+
+# Check for velocity commands
+ros2 topic echo /mouse/cmd_vel
+```
+
+#### 5. SLAM Map Not Building
+
+```bash
+# Symptom
+No map appears in RViz
+
+# Solution
+# Verify SLAM Toolbox is running
+ros2 node list | grep slam
+
+# Check scan topic
+ros2 topic list | grep scan
+
+# Restart SLAM with correct parameters
+ros2 launch pac_mouse_pkg slam.launch.py
+```
+
+#### 6. Transform (TF) Errors
+
+```bash
+# Symptom
+"Transform from [frame] to [frame] failed" errors
+
+# Solution
+# Verify TF tree
+ros2 run tf2_tools view_frames
+
+# Check robot_state_publisher
+ros2 node list | grep robot_state_publisher
+
+# Restart robot description publisher
+ros2 launch pac_mouse_pkg spawn_robots.launch.py
+```
+
+### Performance Optimization
+
+```bash
+# Reduce simulation RTF (Real-Time Factor) if lagging
+# Edit world file, reduce physics update rate
+
+# Disable visualization during intensive testing
+HEADLESS=1 ros2 launch pac_mouse_pkg simulation.launch.py
+
+# Limit RViz displays to essential topics only
+# Disable camera feeds if not needed
+```
+
+### Debug Mode
+
+```bash
+# Enable verbose logging for specific node
+ros2 run pac_mouse_pkg cat_brain --ros-args --log-level debug
+
+# Record all topics for playback analysis
+ros2 bag record -a -o debug_session
+
+# Play back recorded session
+ros2 bag play debug_session/
+```
+
+---
+
+## 👥 Development Team
+
+This project was developed as part of the **ARI3215 Robotics 2** course.
+
+### Team Members
+
+| Name | Role | GitHub | Email |
+|------|------|--------|-------|
+| **Damian Cutajar** | Lead Developer & AI Systems | [@giginu1111](https://github.com/giginu1111) | damian.cutajar@gmail.com |
+| **Matthew Farrugia** | Navigation & SLAM Integration | - | - |
+| **Miguel Baldacchino** | Simulation & Sensors | - | - |
+
+### Contributions
+
+- **Damian Cutajar**: Cat brain AI, mouse controllers, game master, project architecture
+- **Matthew Farrugia**: Nav2 integration, SLAM configuration, path planning optimization
+- **Miguel Baldacchino**: Gazebo world design, URDF modeling, sensor configuration
+
+### Academic Context
+
+- **Course**: ARI3215 - Robotics 2
+- **Academic Year**: 2025/2026
+- **Semester**: Spring 2026
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions to improve the Pac-Mouse project!
+
+### How to Contribute
+
+1. **Fork the Repository**
+   ```bash
+   git clone https://github.com/giginu1111/Robotics2_ARI3215.git
+   cd Robotics2_ARI3215
+   ```
+
+2. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. **Make Your Changes**
+   - Follow PEP 8 style guide for Python code
+   - Add docstrings to all functions and classes
+   - Test thoroughly in simulation
+
+4. **Run Tests**
+   ```bash
+   colcon test --packages-select pac_mouse_pkg
+   ```
+
+5. **Commit Your Changes**
+   ```bash
+   git add .
+   git commit -m "Add: descriptive commit message"
+   ```
+
+6. **Push and Create Pull Request**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+### Coding Standards
+
+- **Python**: PEP 8 compliance, type hints where applicable
+- **ROS 2**: Follow ROS 2 naming conventions
+- **Documentation**: Inline comments for complex logic
+- **Git Commits**: Use conventional commit format
+
+### Areas for Improvement
+
+- [ ] Implement multi-mouse cooperative behavior
+- [ ] Add machine learning-based cat prediction
+- [ ] Create procedurally generated mazes
+- [ ] Develop web-based visualization dashboard
+- [ ] Add sound effects and enhanced graphics
+- [ ] Implement difficulty levels
+- [ ] Create tournament mode with scoring leaderboard
+
+---
+
+## 📄 License
+
+This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
+
+```
+Copyright 2026 Damian Cutajar, Matthew Farrugia, Miguel Baldacchino
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+---
+
+## 🙏 Acknowledgments
+
+- **ROS 2 Community**: For the excellent robotics framework
+- **Nav2 Team**: For robust navigation capabilities
+- **Gazebo Team**: For the physics simulation engine
+- **SLAM Toolbox**: For real-time mapping solutions
+- **Open Robotics**: For ROS 2 infrastructure and tools
+- **Course Instructors**: For guidance and project requirements
+
+---
+
+## 📚 References
+
+- [ROS 2 Documentation](https://docs.ros.org/en/jazzy/index.html)
+- [Nav2 Documentation](https://navigation.ros.org/)
+- [Gazebo Documentation](https://gazebosim.org/docs)
+- [SLAM Toolbox](https://github.com/SteveMacenski/slam_toolbox)
+- [Robot Localization](http://docs.ros.org/en/melodic/api/robot_localization/html/index.html)
+
+---
+
+## 📞 Contact
+
+For questions, issues, or collaboration:
+
+- **Project Repository**: [https://github.com/giginu1111/Robotics2_ARI3215](https://github.com/giginu1111/Robotics2_ARI3215)
+- **Issue Tracker**: [GitHub Issues](https://github.com/giginu1111/Robotics2_ARI3215/issues)
+- **Email**: damian.cutajar@gmail.com
+
+---
+
+<div align="center">
+
+**Made with ❤️ by the Pac-Mouse Team**
+
+*Autonomous Robotics • ROS 2 • Gazebo • SLAM*
+
+[![GitHub stars](https://img.shields.io/github/stars/giginu1111/Robotics2_ARI3215?style=social)](https://github.com/giginu1111/Robotics2_ARI3215/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/giginu1111/Robotics2_ARI3215?style=social)](https://github.com/giginu1111/Robotics2_ARI3215/network/members)
+
+</div>
