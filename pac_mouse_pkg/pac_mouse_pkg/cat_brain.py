@@ -105,7 +105,7 @@ class CatBrainV2(Node):
         self.los_epsilon = 0.15
 
         # motion limits
-        self.max_lin = 0.6
+        self.max_lin = 0.5
         self.max_ang = 1.8
 
         # steering gains
@@ -113,8 +113,8 @@ class CatBrainV2(Node):
         self.turn_only_thresh = 1.0
 
         # --- Option A: Clearance-based avoidance ---
-        self.avoid_dist = 0.45           # HARD rule: do not drive toward space < 0.30m
-        self.slow_dist = 0.75            # start slowing down if anything is within this
+        self.avoid_dist = 0.55           # HARD rule: do not drive toward space < 0.30m
+        self.slow_dist = 0.85            # start slowing down if anything is within this
         self.front_window_deg = 30.0     # "front" window for speed limiting
         self.goal_blend = 0.65           # weight on goal vs free-space (0..1). Higher = more aggressive chase
         self.escape_goal_blend = 0.35    # in ESCAPE, prefer free space more to avoid wall pinning
