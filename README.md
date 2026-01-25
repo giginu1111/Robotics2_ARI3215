@@ -297,79 +297,10 @@ pac_mouse_pkg teleop
 #### Launch Full Simulation
 
 ```bash
-# Terminal 1: Launch Gazebo world and spawn robots
+# Terminal 1: Launch Everything
 ros2 launch pac_mouse_pkg simulation.launch.py
-
-# Terminal 2: Start mouse autonomous controller
-ros2 run pac_mouse_pkg hybrid_explorer_mouse
-
-# Terminal 3: Start cat AI
-ros2 run pac_mouse_pkg cat_brain
-
-# Terminal 4: Start game master
-ros2 run pac_mouse_pkg game_master
-
-# Terminal 5: Launch RViz for visualization
-rviz2 -d $(ros2 pkg prefix pac_mouse_pkg)/share/pac_mouse_pkg/rviz/config.rviz
 ```
 
-#### Using Launch Files (Recommended)
-
-```bash
-# Launch everything with SLAM and navigation
-ros2 launch pac_mouse_pkg full_game.launch.py
-
-# Launch with teleoperation for mouse
-ros2 launch pac_mouse_pkg teleop_mode.launch.py
-
-# Launch visualization only
-ros2 launch pac_mouse_pkg rviz.launch.py
-```
-
-### Controller Options
-
-#### Mouse Controllers
-
-| Controller | Description | Complexity | Use Case |
-|------------|-------------|------------|----------|
-| `teleop.py` | Manual keyboard control | ⭐ | Testing, demonstration |
-| `explorer.py` | Basic wall-following | ⭐⭐ | Simple navigation |
-| `explorer_mouse.py` | Enhanced exploration | ⭐⭐⭐ | Autonomous exploration |
-| `smart_mouse.py` | Goal-oriented navigation | ⭐⭐⭐⭐ | Cheese collection |
-| `hybrid_explorer_mouse.py` | Advanced multi-strategy AI | ⭐⭐⭐⭐⭐ | Competition mode |
-
-```bash
-# Run specific mouse controller
-ros2 run pac_mouse_pkg <controller_name>
-
-# Examples:
-ros2 run pac_mouse_pkg smart_mouse
-ros2 run pac_mouse_pkg hybrid_explorer_mouse
-```
-
-#### Cat Controller
-
-```bash
-# Launch cat brain (only one controller available)
-ros2 run pac_mouse_pkg cat_brain
-```
-
-### Manual Control (Teleoperation)
-
-```bash
-# Control the mouse with keyboard
-ros2 run pac_mouse_pkg teleop
-
-# Controls:
-#   w/↑  : Move forward
-#   s/↓  : Move backward
-#   a/←  : Turn left
-#   d/→  : Turn right
-#   space: Stop
-#   q    : Quit
-```
-
----
 
 ## 🧠 Robot Controllers
 
@@ -444,25 +375,6 @@ Most advanced mouse controller with multi-strategy approach.
 - Cheese prioritization based on distance and safety
 - Adaptive speed control
 
-#### Smart Mouse (smart_mouse.py)
-
-Simplified goal-oriented controller for reliable cheese collection.
-
-**Features:**
-- Direct navigation to nearest cheese
-- Basic obstacle avoidance
-- Cat proximity detection
-- Fallback to exploration when no cheese visible
-
-#### Explorer Mouse (explorer_mouse.py)
-
-Wall-following explorer with random walk behavior.
-
-**Features:**
-- Right/left wall following
-- Random direction changes
-- Basic collision avoidance
-
 ---
 
 ## 🎮 Game Mechanics
@@ -517,8 +429,6 @@ Robot descriptions are located in `pac_mouse_pkg/urdf/`:
 urdf/
 ├── mouse.urdf.xacro        # Mouse robot definition
 ├── cat.urdf.xacro          # Cat robot definition
-├── common_sensors.xacro    # Shared sensor definitions
-└── materials.xacro         # Visual materials and colors
 ```
 
 #### Sensor Configuration
@@ -554,9 +464,9 @@ Custom Gazebo worlds in `pac_mouse_pkg/worlds/`:
 
 ```bash
 worlds/
-├── maze.world              # Main maze environment
-├── simple_test.world       # Simple testing arena
-└── competition.world       # Competition-ready map
+├── maze_v3_scaled_1.5.sdf              # Main maze environment
+├── maze_v3.sdf
+└── maze.sdf
 ```
 
 ### Navigation Configuration
@@ -568,33 +478,8 @@ config/
 ├── nav2_params.yaml        # Navigation stack parameters
 ├── slam_params.yaml        # SLAM Toolbox configuration
 ├── ekf_params.yaml         # Robot localization (EKF)
-└── planner_params.yaml     # Path planner settings
+├── bridge_params.yaml      # Gazebo To ROS2 Bridge
 ```
-
-#### Key Nav2 Parameters
-
-```yaml
-# Planner Configuration
-planner_server:
-  ros__parameters:
-    expected_planner_frequency: 20.0
-    planner_plugins: ["GridBased"]
-    GridBased:
-      plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.5
-      use_astar: true
-
-# Controller Configuration
-controller_server:
-  ros__parameters:
-    controller_frequency: 20.0
-    FollowPath:
-      plugin: "dwb_core::DWBLocalPlanner"
-      max_vel_x: 0.5
-      min_vel_x: -0.2
-      max_vel_theta: 1.5
-```
-
 ---
 
 ## 📁 Project Structure
@@ -605,16 +490,13 @@ Robotics2_ARI3215/
 │   ├── config/                      # Configuration files
 │   │   ├── nav2_params.yaml
 │   │   ├── slam_params.yaml
+│   │   ├── bridge_params.yaml
 │   │   └── ekf_params.yaml
 │   ├── launch/                      # Launch files
 │   │   ├── simulation.launch.py
-│   │   ├── full_game.launch.py
-│   │   ├── navigation.launch.py
-│   │   └── rviz.launch.py
+│   │   └── maze.launch.py
 │   ├── models/                      # Gazebo models
-│   │   ├── cheese/
-│   │   ├── obstacles/
-│   │   └── arena/
+│   │   └── cheese_triangle/
 │   ├── pac_mouse_pkg/              # Python source code
 │   │   ├── __init__.py
 │   │   ├── cat_brain.py            # Cat AI controller
@@ -630,27 +512,20 @@ Robotics2_ARI3215/
 │   ├── resource/                    # Package resources
 │   │   └── pac_mouse_pkg
 │   ├── rviz/                        # RViz configurations
-│   │   └── config.rviz
-│   ├── test/                        # Unit tests
-│   │   ├── test_copyright.py
-│   │   ├── test_flake8.py
-│   │   └── test_pep257.py
+│   │   └── mouse_view.rviz
 │   ├── urdf/                        # Robot descriptions
 │   │   ├── mouse.urdf.xacro
-│   │   ├── cat.urdf.xacro
-│   │   ├── common_sensors.xacro
-│   │   └── materials.xacro
+│   │   └── cat.urdf.xacro
 │   ├── worlds/                      # Gazebo worlds
-│   │   ├── maze.world
-│   │   ├── simple_test.world
-│   │   └── competition.world
+│   │   ├── maze_v3_scaled_1.5.sdf  
+│   │   ├── maze_v3.sdf  
+│   │   └── maze.sdf  
 │   ├── package.xml                  # Package manifest
 │   ├── setup.py                     # Python package setup
 │   └── setup.cfg                    # Setup configuration
 ├── Documentation/                   # Project documentation
-│   ├── design_docs/
-│   ├── technical_reports/
-│   └── presentations/
+│   ├── Proposal.pdf
+│   └── RoboticsProjectGuidelines.pdf
 ├── .gitignore                       # Git ignore rules
 ├── .vscode/                         # VSCode settings
 ├── dependencies.txt                 # Dependency installation commands
@@ -658,139 +533,8 @@ Robotics2_ARI3215/
 ├── frames_2026-01-18_23.03.10.pdf  # TF tree PDF
 ├── oldcat.xacro                     # Legacy cat URDF
 ├── oldmouse.urdf.xacro             # Legacy mouse URDF
-└── README.md                        # This file
+└── README.md                        
 ```
-
----
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### 1. Package Not Found
-
-```bash
-# Symptom
-Package 'pac_mouse_pkg' not found
-
-# Solution
-cd ~/ros2_ws
-source /opt/ros/jazzy/setup.bash
-colcon build --symlink-install --packages-select pac_mouse_pkg
-source install/setup.bash
-```
-
-#### 2. Gazebo Won't Launch
-
-```bash
-# Symptom
-Gazebo fails to start or crashes immediately
-
-# Solution
-# Clear Gazebo cache
-rm -rf ~/.gazebo/
-
-# Reinstall Gazebo
-sudo apt install --reinstall ros-jazzy-ros-gz-sim
-
-# Check for port conflicts
-killall gzserver gzclient
-```
-
-#### 3. Cat Crashes Into Walls
-
-```bash
-# Symptom
-Cat gets stuck in corners or phases through walls
-
-# Solution
-# Ensure you're using the updated cat_brain.py with:
-# - avoid_dist = 0.60
-# - slow_dist = 1.0
-# - front_window_deg = 45.0
-# - Three-phase recovery system
-
-# Verify LiDAR is publishing
-ros2 topic echo /cat/scan --once
-```
-
-#### 4. Mouse Doesn't Move
-
-```bash
-# Symptom
-Mouse spawns but doesn't navigate
-
-# Solution
-# Check if controller is running
-ros2 node list | grep mouse
-
-# Verify odometry
-ros2 topic echo /mouse/odom --once
-
-# Check for velocity commands
-ros2 topic echo /mouse/cmd_vel
-```
-
-#### 5. SLAM Map Not Building
-
-```bash
-# Symptom
-No map appears in RViz
-
-# Solution
-# Verify SLAM Toolbox is running
-ros2 node list | grep slam
-
-# Check scan topic
-ros2 topic list | grep scan
-
-# Restart SLAM with correct parameters
-ros2 launch pac_mouse_pkg slam.launch.py
-```
-
-#### 6. Transform (TF) Errors
-
-```bash
-# Symptom
-"Transform from [frame] to [frame] failed" errors
-
-# Solution
-# Verify TF tree
-ros2 run tf2_tools view_frames
-
-# Check robot_state_publisher
-ros2 node list | grep robot_state_publisher
-
-# Restart robot description publisher
-ros2 launch pac_mouse_pkg spawn_robots.launch.py
-```
-
-### Performance Optimization
-
-```bash
-# Reduce simulation RTF (Real-Time Factor) if lagging
-# Edit world file, reduce physics update rate
-
-# Disable visualization during intensive testing
-HEADLESS=1 ros2 launch pac_mouse_pkg simulation.launch.py
-
-# Limit RViz displays to essential topics only
-# Disable camera feeds if not needed
-```
-
-### Debug Mode
-
-```bash
-# Enable verbose logging for specific node
-ros2 run pac_mouse_pkg cat_brain --ros-args --log-level debug
-
-# Record all topics for playback analysis
-ros2 bag record -a -o debug_session
-
-# Play back recorded session
-ros2 bag play debug_session/
-```
-
 ---
 
 ## 👥 Development Team
@@ -799,70 +543,11 @@ This project was developed as part of the **ARI3215 Robotics 2** course.
 
 ### Team Members
 
-| Name | Role | GitHub | Email |
-|------|------|--------|-------|
-| **Damian Cutajar** | Lead Developer & AI Systems | [@giginu1111](https://github.com/giginu1111) | damian.cutajar@gmail.com |
-| **Matthew Farrugia** | Navigation & SLAM Integration | - | - |
-| **Miguel Baldacchino** | Simulation & Sensors | - | - |
-
-### Contributions
-
-- **Damian Cutajar**: Cat brain AI, mouse controllers, game master, project architecture
-- **Matthew Farrugia**: Nav2 integration, SLAM configuration, path planning optimization
-- **Miguel Baldacchino**: Gazebo world design, URDF modeling, sensor configuration
-
-### Academic Context
-
-- **Course**: ARI3215 - Robotics 2
-- **Academic Year**: 2025/2026
-- **Semester**: Spring 2026
-
----
-
-## 🤝 Contributing
-
-We welcome contributions to improve the Pac-Mouse project!
-
-### How to Contribute
-
-1. **Fork the Repository**
-   ```bash
-   git clone https://github.com/giginu1111/Robotics2_ARI3215.git
-   cd Robotics2_ARI3215
-   ```
-
-2. **Create a Feature Branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-3. **Make Your Changes**
-   - Follow PEP 8 style guide for Python code
-   - Add docstrings to all functions and classes
-   - Test thoroughly in simulation
-
-4. **Run Tests**
-   ```bash
-   colcon test --packages-select pac_mouse_pkg
-   ```
-
-5. **Commit Your Changes**
-   ```bash
-   git add .
-   git commit -m "Add: descriptive commit message"
-   ```
-
-6. **Push and Create Pull Request**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-
-### Coding Standards
-
-- **Python**: PEP 8 compliance, type hints where applicable
-- **ROS 2**: Follow ROS 2 naming conventions
-- **Documentation**: Inline comments for complex logic
-- **Git Commits**: Use conventional commit format
+| Name |
+|------|
+| **Damian Cutajar** |
+| **Matthew Farrugia** |
+| **Miguel Baldacchino** |
 
 ### Areas for Improvement
 
@@ -870,42 +555,8 @@ We welcome contributions to improve the Pac-Mouse project!
 - [ ] Add machine learning-based cat prediction
 - [ ] Create procedurally generated mazes
 - [ ] Develop web-based visualization dashboard
-- [ ] Add sound effects and enhanced graphics
 - [ ] Implement difficulty levels
 - [ ] Create tournament mode with scoring leaderboard
-
----
-
-## 📄 License
-
-This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
-
-```
-Copyright 2026 Damian Cutajar, Matthew Farrugia, Miguel Baldacchino
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
-
----
-
-## 🙏 Acknowledgments
-
-- **ROS 2 Community**: For the excellent robotics framework
-- **Nav2 Team**: For robust navigation capabilities
-- **Gazebo Team**: For the physics simulation engine
-- **SLAM Toolbox**: For real-time mapping solutions
-- **Open Robotics**: For ROS 2 infrastructure and tools
-- **Course Instructors**: For guidance and project requirements
 
 ---
 
@@ -919,23 +570,9 @@ limitations under the License.
 
 ---
 
-## 📞 Contact
-
-For questions, issues, or collaboration:
-
-- **Project Repository**: [https://github.com/giginu1111/Robotics2_ARI3215](https://github.com/giginu1111/Robotics2_ARI3215)
-- **Issue Tracker**: [GitHub Issues](https://github.com/giginu1111/Robotics2_ARI3215/issues)
-- **Email**: damian.cutajar@gmail.com
-
----
-
 <div align="center">
 
-**Made with ❤️ by the Pac-Mouse Team**
+**Made with ❤️ by the Alpha Team**
 
 *Autonomous Robotics • ROS 2 • Gazebo • SLAM*
-
-[![GitHub stars](https://img.shields.io/github/stars/giginu1111/Robotics2_ARI3215?style=social)](https://github.com/giginu1111/Robotics2_ARI3215/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/giginu1111/Robotics2_ARI3215?style=social)](https://github.com/giginu1111/Robotics2_ARI3215/network/members)
-
 </div>
