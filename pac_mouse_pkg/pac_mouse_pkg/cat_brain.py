@@ -103,7 +103,6 @@ class CatBrainV2(Node):
         self.sniff_radius = 1.2
         self.belief_timeout = 5.0
         self.los_epsilon = 0.15
-        self.wall_proximity_threshold = 0.35  # NEW: Don't trust vision when too close to walls
 
         # motion limits
         self.max_lin = 0.6
@@ -113,10 +112,10 @@ class CatBrainV2(Node):
         self.k_ang = 1.8
         self.turn_only_thresh = 1.0
 
-        # --- Option A: Clearance-based avoidance (IMPROVED) ---
-        self.avoid_dist = 0.60           # INCREASED from 0.45 to prevent collisions
-        self.slow_dist = 1.0             # INCREASED from 0.75 for smoother deceleration
-        self.front_window_deg = 45.0     # INCREASED from 30.0 to catch side obstacles
+        # --- Option A: Clearance-based avoidance ---
+        self.avoid_dist = 0.45           # HARD rule: do not drive toward space < 0.30m
+        self.slow_dist = 0.75            # start slowing down if anything is within this
+        self.front_window_deg = 30.0     # "front" window for speed limiting
         self.goal_blend = 0.65           # weight on goal vs free-space (0..1). Higher = more aggressive chase
         self.escape_goal_blend = 0.35    # in ESCAPE, prefer free space more to avoid wall pinning
         self.max_considered_range = 6.0  # cap for "infinite" lidar
@@ -137,23 +136,21 @@ class CatBrainV2(Node):
 
         self.cheese_count = 0
 
-        # --- Real stuck detection (ODOM-based) with IMPROVED recovery ---
+        # --- Real stuck detection (ODOM-based) ---
         self.last_progress_check_time = time.time()
         self.last_progress_pos = None
         self.stuck_timeout = 2.0          # seconds with < progress_dist movement
         self.progress_dist = 0.06         # meters
         self.recovering_until = 0.0
-        self.recovery_reverse_time = 0.8  # NEW: Back away first
         self.recovery_turn_time = 0.7     # seconds
-        self.recovery_forward_time = 0.5  # seconds (reduced)
-        self.recovery_phase = "reverse"   # CHANGED: Start with reverse instead of turn
+        self.recovery_forward_time = 0.7  # seconds
+        self.recovery_phase = "turn"      # "turn" then "forward"
         self.recovery_dir = 1.0
-        self.recovery_start_time = 0.0    # NEW: Track recovery start
 
         # control loop
         self.timer = self.create_timer(0.2, self.loop)
 
-        self.get_logger().info("🐱 Cat brain v2 (Option A clearance steering - IMPROVED) online")
+        self.get_logger().info("🐱 Cat brain v2 (Option A clearance steering) online")
         self.log_state(force=True)
 
     # =========================
@@ -282,7 +279,7 @@ class CatBrainV2(Node):
         self.drive_with_clearance(rel, base_speed=self.escape_speed)
 
     # =========================
-    # Motion helpers (Option A - IMPROVED)
+    # Motion helpers (Option A)
     # =========================
     def drive_with_clearance(self, desired_rel_angle: float, base_speed: float):
         """
@@ -357,7 +354,7 @@ class CatBrainV2(Node):
         return dist < self.arrival_radius if return_arrived else False
 
     # =========================
-    # Stuck detection & recovery (IMPROVED - ODOM-based with reverse)
+    # Stuck detection & recovery (ODOM-based)
     # =========================
     def check_progress_and_stuck(self, now: float, allow_recovery: bool):
         if not allow_recovery:
@@ -378,76 +375,39 @@ class CatBrainV2(Node):
             return
 
         if (now - self.last_progress_check_time) > self.stuck_timeout:
-            # True stuck -> recovery: reverse first, then turn toward free space, then push forward
+            # True stuck -> recovery: turn toward best free space, then push forward a bit
             free_rel = self.best_free_space_angle()
             self.recovery_dir = 1.0 if free_rel >= 0.0 else -1.0
-            self.recovery_phase = "reverse"  # CHANGED: Start with reverse
-            self.recovery_start_time = now
-            self.recovering_until = now + self.recovery_reverse_time + self.recovery_turn_time + self.recovery_forward_time
+            self.recovery_phase = "turn"
+            self.recovering_until = now + self.recovery_turn_time + self.recovery_forward_time
             # reset timer so it doesn't retrigger instantly
             self.last_progress_check_time = now
             self.last_progress_pos = (x, y)
-            self.get_logger().warn("⚠️ STUCK DETECTED - Starting recovery (reverse -> turn -> forward)")
 
     def run_recovery(self):
-        """
-        IMPROVED recovery with three phases:
-        1. REVERSE: Back away from obstacle
-        2. TURN: Rotate toward free space
-        3. FORWARD: Drive forward into open area
-        """
+        # Recovery runs open-loop but based on free-space preference
         now = time.time()
-        elapsed = now - self.recovery_start_time
 
-        # Phase 1: REVERSE
-        if self.recovery_phase == "reverse":
-            self.publish_cmd(-0.30, 0.0)  # Back away from wall
-            
-            # Check if we have enough clearance to proceed or time expired
-            if self.lidar_ranges:
-                min_all = min([self.clean_range(r) for r in self.lidar_ranges])
-                if min_all > 0.55 or elapsed > self.recovery_reverse_time:
-                    self.recovery_phase = "turn"
-                    self.get_logger().info("📍 Recovery: Reverse complete, now turning")
-            elif elapsed > self.recovery_reverse_time:
-                self.recovery_phase = "turn"
-            return
-
-        # Phase 2: TURN
+        # split recovery into turn then forward
+        # We compute where we are in recovery based on remaining time.
+        # Easier: keep it simple with an internal phase switch.
         if self.recovery_phase == "turn":
-            # Turn toward the best free space
-            free_rel = self.best_free_space_angle()
-            turn_dir = 1.0 if free_rel >= 0 else -1.0
-            self.publish_cmd(0.0, 1.2 * turn_dir)
-            
-            # Check if aligned with free space or time expired
-            phase_elapsed = elapsed - self.recovery_reverse_time
-            if abs(free_rel) < math.radians(15) or phase_elapsed > self.recovery_turn_time:
+            self.clearance_turn_in_place(self.recovery_dir)
+            # after turn_time, switch phase
+            # (we detect this by comparing with remaining time estimate)
+            # Since we don't store start time, we switch when front is safe enough.
+            front_min = self.get_min_range_in_window(0.0, self.front_window_deg)
+            if front_min > (self.avoid_dist + 0.10):
                 self.recovery_phase = "forward"
-                self.get_logger().info("📍 Recovery: Turn complete, now advancing")
             return
 
-        # Phase 3: FORWARD
-        if self.recovery_phase == "forward":
-            # Drive forward with clearance checking
-            self.drive_with_clearance(0.0, base_speed=0.35)
-            return
+        # forward phase: drive straight with clearance speed limiting
+        self.drive_with_clearance(0.0, base_speed=0.35)
 
     # =========================
-    # Perception / Visibility (IMPROVED)
+    # Perception / Visibility
     # =========================
     def mouse_is_visible(self) -> bool:
-        """
-        IMPROVED: Added wall-proximity check to prevent camera phasing detection.
-        If cat is pressed against a wall, don't trust vision.
-        """
-        # NEW: Check if cat is too close to ANY wall
-        if self.lidar_ranges:
-            min_clearance = min([self.clean_range(r) for r in self.lidar_ranges])
-            if min_clearance < self.wall_proximity_threshold:
-                # Too close to a wall - camera might be phasing through
-                return False
-
         cx = self.cat_pose.position.x
         cy = self.cat_pose.position.y
         mx = self.mouse_pose.position.x
