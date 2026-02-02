@@ -95,7 +95,7 @@ class CatBrainV2(Node):
         self.turn_only_thresh = 1.0
 
         # --- Option A: Clearance-based avoidance ---
-        self.avoid_dist = 0.55           # HARD rule: do not drive toward space < this
+        self.avoid_dist = 0.75           # HARD rule: do not drive toward space < this
         self.slow_dist = 0.85            # start slowing down if anything is within this
         self.front_window_deg = 20.0     # speed limiting uses this cone (reduced from 30 -> 20)
         self.goal_blend = 0.65           # weight on goal vs free-space (0..1). Higher = more aggressive chase
