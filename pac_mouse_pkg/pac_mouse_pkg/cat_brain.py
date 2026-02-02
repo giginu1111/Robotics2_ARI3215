@@ -130,9 +130,9 @@ class CatBrainV2(Node):
         self.recovery_dir = 1.0  # +1 left, -1 right
 
         # timings
-        self.recovery_reverse_time = 2.0
+        self.recovery_reverse_time = 1.4
         self.recovery_turn_time = 1.7
-        self.recovery_forward_time = 1.5
+        self.recovery_forward_time = 2.0
 
         # speeds
         self.recovery_reverse_speed = -0.15
