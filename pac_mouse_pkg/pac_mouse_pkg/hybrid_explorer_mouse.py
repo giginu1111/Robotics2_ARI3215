@@ -107,7 +107,7 @@ class MouseBrain(Node):
         
         # Calculate threshold based on FOV (baseline: 55000 @ 60°)
         baseline_fov = 60.0
-        baseline_threshold = 45000
+        baseline_threshold = 40000
         fov_ratio = (baseline_fov / self.camera_fov_degrees) ** 2
         self.cheese_threshold = int(baseline_threshold * fov_ratio)
         
