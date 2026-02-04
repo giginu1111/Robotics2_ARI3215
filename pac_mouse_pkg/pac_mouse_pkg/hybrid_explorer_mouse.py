@@ -123,7 +123,7 @@ class MouseBrain(Node):
         self.grid_size_y = int(self.map_height_meters / self.resolution)  # 160 cells
         
         # Cat detection settings
-        self.cat_danger_distance = 5.0
+        self.cat_danger_distance = 8.0
         self.cat_critical_distance = 2.5
         
         # CAT VISION SETTINGS
@@ -573,7 +573,7 @@ class MouseBrain(Node):
         if self.cat_detected and not self.victory_mode:
             urgency = "CRITICAL" if self.cat_distance < self.cat_critical_distance else "WARNING"
             
-            if self.cat_distance > 2:
+            if self.cat_distance > 0.8:
                 if not self.is_navigating:
                     if self.nav_goal_handle:
                         self.nav_goal_handle.cancel_goal_async()
