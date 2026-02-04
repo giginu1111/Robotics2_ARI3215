@@ -2,17 +2,14 @@
 """
 cat_brain.py
 
-Key upgrades:
 - Clearance-based steering (uses FULL LiDAR, not just front ray)
-- Hard wall exclusion: avoid anything closer than avoid_dist (default 0.50m) ALL AROUND
+- Hard wall exclusion: avoid anything closer than avoid_dist ALL AROUND
 - Goal direction is blended with "most free space" direction (smooth, no corner wedging)
 - Stuck detection based on ODOM movement (not commanded speed)
 - Latched recovery: brief reverse -> fixed turn -> fixed forward push (no oscillation)
 - CHASE / INVESTIGATE timeout after 30s -> PATROL
-- Still supports PATROL / CHASE / INVESTIGATE / ESCAPE
+- PATROL / CHASE / INVESTIGATE / ESCAPE
 
-Assumptions:
-- LaserScan angles are in the robot frame (standard): angle=0 is forward, + is left (CCW).
 """
 
 import math
@@ -97,10 +94,10 @@ class CatBrain(Node):
         # Clearance-based avoidance 
         self.avoid_dist = 0.75           # HARD rule: do not drive toward space < this
         self.slow_dist = 0.85            # start slowing down if anything is within this
-        self.front_window_deg = 20.0     # speed limiting uses this cone (reduced from 30 -> 20)
+        self.front_window_deg = 20.0     # speed limiting uses this cone 
         self.goal_blend = 0.65           # weight on goal vs free-space (0..1). Higher = more aggressive chase
         self.escape_goal_blend = 0.35    # in ESCAPE, prefer free space more to avoid wall pinning
-        self.max_considered_range = 6.0  # cap for "infinite" lidar
+        self.max_considered_range = 6.0  # cap for lidar
 
         # patrol behaviour
         self.patrol_speed = 0.70
@@ -124,7 +121,7 @@ class CatBrain(Node):
         self.stuck_timeout = 2.0          # seconds with < progress_dist movement
         self.progress_dist = 0.06         # meters
 
-        # reverse -> turn -> forward ---
+        # reverse -> turn -> forward 
         self.recovering = False
         self.recovery_start_time = 0.0
         self.recovery_dir = 1.0  # +1 left, -1 right
@@ -142,7 +139,7 @@ class CatBrain(Node):
         # control loop
         self.timer = self.create_timer(0.2, self.loop)
 
-        self.get_logger().info("🐱 Cat brain v2 (Option A clearance steering + latched recovery) online")
+        self.get_logger().info("🐱 Cat brain v2 online")
         self.log_state(force=True)
 
     # =========================
@@ -216,7 +213,7 @@ class CatBrain(Node):
             if self.state == CHASE:
                 self.set_state(INVESTIGATE)
 
-        # 2.5) NEW: CHASE/INVESTIGATE hard timeout -> PATROL
+        # 2.5) CHASE/INVESTIGATE hard timeout -> PATROL
         state_time = now - self.state_enter_time
         if self.state == CHASE and state_time > self.max_chase_time:
             self.set_state(PATROL)
@@ -279,11 +276,6 @@ class CatBrain(Node):
     # Motion helpers
     # =========================
     def drive_with_clearance(self, desired_rel_angle: float, base_speed: float):
-        """
-        Clearance-safe driving:
-        - If desired direction points into "forbidden" space (< avoid_dist), override toward free space.
-        - Speed is reduced by front clearance, and goes 0 if too close.
-        """
         if not self.lidar_ranges or self.angle_inc == 0.0:
             ang = self.clamp(self.k_ang * desired_rel_angle, -self.max_ang, self.max_ang)
             self.publish_cmd(0.10, ang)
@@ -294,7 +286,7 @@ class CatBrain(Node):
 
         ang = self.clamp(self.k_ang * desired_rel_angle, -self.max_ang, self.max_ang)
 
-        # speed control based on front clearance (cone reduced to 20deg)
+        # speed control based on front clearance 
         front_min = self.get_min_range_in_window(center_angle=0.0, half_width_deg=self.front_window_deg)
 
         if front_min < self.avoid_dist:
@@ -369,17 +361,11 @@ class CatBrain(Node):
             self.recovering = True
             self.recovery_start_time = now
 
-            # reset timer so it doesn't retrigger instantly
+            # reset timer so it doesnt retrigger instantly
             self.last_progress_check_time = now
             self.last_progress_pos = (x, y)
 
     def run_recovery(self):
-        """
-        Latched, open-loop recovery to break symmetry:
-        1) brief reverse
-        2) fixed turn (direction chosen once on entry)
-        3) fixed forward push
-        """
         t = time.time() - self.recovery_start_time
 
         if t < self.recovery_reverse_time:
