@@ -123,7 +123,7 @@ class MouseBrain(Node):
         self.grid_size_y = int(self.map_height_meters / self.resolution)  # 160 cells
         
         # Cat detection settings
-        self.cat_danger_distance = 8.0
+        self.cat_danger_distance = 5.0
         self.cat_critical_distance = 2.5
         
         # CAT VISION SETTINGS
