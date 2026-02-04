@@ -15,7 +15,11 @@ A sophisticated autonomous robotics simulation implementing a Pac-Man-inspired c
 
 ---
 
-## 🎯 Overview
+## 🎯 Overview  
+![MouseSLAMSpeed](https://github.com/user-attachments/assets/5bf3b6a3-d5a5-447a-8667-2a417fcfc40e)  ![0203(1)](https://github.com/user-attachments/assets/2dda07ba-a319-4092-9234-ec4da18bbca6)
+
+
+
 
 **Pac-Mouse** is an advanced robotics project developed for the ARI3215 Robotics 2 course. The simulation features two autonomous agents operating in a Gazebo environment:
 
