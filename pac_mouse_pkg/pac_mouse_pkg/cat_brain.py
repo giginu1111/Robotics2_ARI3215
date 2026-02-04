@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-cat_brain_v2.py (Option A upgrade)
+cat_brain.py
 
 Key upgrades:
 - Clearance-based steering (uses FULL LiDAR, not just front ray)
@@ -35,9 +35,9 @@ INVESTIGATE = 2
 ESCAPE = 3
 
 
-class CatBrainV2(Node):
+class CatBrain(Node):
     def __init__(self):
-        super().__init__('cat_brain_v2')
+        super().__init__('cat_brain')
 
         # -------------------------
         # SUBSCRIBERS
@@ -94,7 +94,7 @@ class CatBrainV2(Node):
         self.k_ang = 1.8
         self.turn_only_thresh = 1.0
 
-        # --- Option A: Clearance-based avoidance ---
+        # Clearance-based avoidance 
         self.avoid_dist = 0.75           # HARD rule: do not drive toward space < this
         self.slow_dist = 0.85            # start slowing down if anything is within this
         self.front_window_deg = 20.0     # speed limiting uses this cone (reduced from 30 -> 20)
@@ -118,13 +118,13 @@ class CatBrainV2(Node):
 
         self.cheese_count = 0
 
-        # --- Real stuck detection (ODOM-based) ---
+        # Real stuck detection
         self.last_progress_check_time = time.time()
         self.last_progress_pos = None
         self.stuck_timeout = 2.0          # seconds with < progress_dist movement
         self.progress_dist = 0.06         # meters
 
-        # --- Latched recovery (NEW): reverse -> turn -> forward ---
+        # reverse -> turn -> forward ---
         self.recovering = False
         self.recovery_start_time = 0.0
         self.recovery_dir = 1.0  # +1 left, -1 right
@@ -181,7 +181,7 @@ class CatBrainV2(Node):
     def set_state(self, new_state: int):
         if new_state != self.state:
             self.state = new_state
-            self.state_enter_time = time.time()  # NEW: track entry time for timeout logic
+            self.state_enter_time = time.time()  # track entry time for timeout logic
             self.log_state()
 
     # =========================
@@ -276,7 +276,7 @@ class CatBrainV2(Node):
         self.drive_with_clearance(rel, base_speed=self.escape_speed)
 
     # =========================
-    # Motion helpers (Option A)
+    # Motion helpers
     # =========================
     def drive_with_clearance(self, desired_rel_angle: float, base_speed: float):
         """
@@ -342,7 +342,7 @@ class CatBrainV2(Node):
         return dist < self.arrival_radius if return_arrived else False
 
     # =========================
-    # Stuck detection & recovery (ODOM-based)
+    # Stuck detection & recovery
     # =========================
     def check_progress_and_stuck(self, now: float, allow_recovery: bool):
         if not allow_recovery:
@@ -363,7 +363,7 @@ class CatBrainV2(Node):
             return
 
         if (now - self.last_progress_check_time) > self.stuck_timeout:
-            # NEW: latched recovery (reverse -> turn -> forward), choose turn direction once
+            # latched recovery (reverse -> turn -> forward), choose turn direction once
             free_rel = self.best_free_space_angle()
             self.recovery_dir = 1.0 if free_rel >= 0.0 else -1.0
             self.recovering = True
@@ -530,7 +530,7 @@ class CatBrainV2(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = CatBrainV2()
+    node = CatBrain()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
