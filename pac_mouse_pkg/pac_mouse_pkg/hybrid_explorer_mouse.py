@@ -399,7 +399,7 @@ class MouseBrain(Node):
                 largest_contour = max(cheese_contours, key=cv2.contourArea)
                 area = cv2.contourArea(largest_contour)
                 
-                if area > 50:
+                if area > 70:
                     M = cv2.moments(largest_contour)
                     if M["m00"] > 0:
                         if not self.cheese_visible:
